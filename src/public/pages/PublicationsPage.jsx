@@ -160,12 +160,9 @@ function useInView(ref) {
 // 0 se target tak ginta hai (reduced-motion par seedha target)
 function useCountUp(target, active, duration = 1000) {
   const [value, setValue] = useState(0)
+  const instant = prefersReducedMotion() || !target
   useEffect(() => {
-    if (!active) return undefined
-    if (prefersReducedMotion() || !target) {
-      setValue(target)
-      return undefined
-    }
+    if (!active || instant) return undefined
     let frame
     const start = performance.now()
     const tick = (now) => {
@@ -175,8 +172,8 @@ function useCountUp(target, active, duration = 1000) {
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [target, active, duration])
-  return value
+  }, [target, active, instant, duration])
+  return active && instant ? target : value
 }
 
 // Scroll par halka sa uthta hai
@@ -531,7 +528,7 @@ export function PublicationsPage() {
   const { slug, portfolio, pageIntros } = usePublicSite()
   const intro = getPageIntro(pageIntros, 'publications')
   const query = usePublications(slug)
-  const all = query.data ?? []
+  const all = useMemo(() => query.data ?? [], [query.data])
 
   const [search, setSearch] = useState('')
   const [type, setType] = useState('')

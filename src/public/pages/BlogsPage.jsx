@@ -231,12 +231,9 @@ async function shareLink(url, title) {
 // Number 0 se target tak ginta hai (reduced-motion par seedha target)
 function useCountUp(target, duration = 900) {
   const [value, setValue] = useState(0)
+  const instant = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) || !target
   useEffect(() => {
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (reduce || !target) {
-      setValue(target)
-      return undefined
-    }
+    if (instant) return undefined
     let frame
     const start = performance.now()
     const tick = (now) => {
@@ -246,8 +243,8 @@ function useCountUp(target, duration = 900) {
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [target, duration])
-  return value
+  }, [target, instant, duration])
+  return instant ? target : value
 }
 
 // page_intros array ho ya { blogs: {...} } map, dono chalte hain

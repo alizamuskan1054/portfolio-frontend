@@ -39,7 +39,11 @@ export const mockPublicApi = {
   },
   async getBlogs(slug) {
     // List mein `content` nahi hota (bhari HTML): detail par aata hai
-    return (await getSite(slug)).blogs.map(({ content: _content, ...rest }) => rest)
+    return (await getSite(slug)).blogs.map((blog) => {
+      const rest = { ...blog }
+      delete rest.content
+      return rest
+    })
   },
   async getBlog(slug, blogSlug) {
     const blog = (await getSite(slug)).blogs.find((b) => b.slug === blogSlug)

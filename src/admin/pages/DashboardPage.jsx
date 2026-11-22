@@ -114,13 +114,10 @@ const DASH_CSS = `
 // 0 se target tak ginta hai (reduced-motion par seedha target)
 function useCountUp(target, active, duration = 900) {
   const [value, setValue] = useState(0)
+  const number = Number(target) || 0
+  const instant = number === 0 || Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
   useEffect(() => {
-    if (!active) return undefined
-    const number = Number(target) || 0
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || number === 0) {
-      setValue(number)
-      return undefined
-    }
+    if (!active || instant) return undefined
     let frame
     const start = performance.now()
     const tick = (now) => {
@@ -130,8 +127,8 @@ function useCountUp(target, active, duration = 900) {
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [target, active, duration])
-  return value
+  }, [number, instant, active, duration])
+  return active && instant ? number : value
 }
 
 // ---------- Hero ----------

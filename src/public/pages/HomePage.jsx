@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs -- useTilt/useSpotlight ke ref aur handlers sirf mouse events par chalte hain, render mein ref.current nahi padha jata */
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -340,12 +341,9 @@ function useInView(ref, margin = '0px 0px -8% 0px') {
 // 0 se target tak ginta hai (reduced-motion par seedha target)
 function useCountUp(target, active, duration = 1100) {
   const [value, setValue] = useState(0)
+  const instant = prefersReducedMotion() || !target
   useEffect(() => {
-    if (!active) return undefined
-    if (prefersReducedMotion() || !target) {
-      setValue(target)
-      return undefined
-    }
+    if (!active || instant) return undefined
     let frame
     const start = performance.now()
     const tick = (now) => {
@@ -355,8 +353,8 @@ function useCountUp(target, active, duration = 1100) {
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [target, active, duration])
-  return value
+  }, [target, active, instant, duration])
+  return active && instant ? target : value
 }
 
 // Scroll par ek baar halka sa andar aata hai. Sirf cards/list ke liye.

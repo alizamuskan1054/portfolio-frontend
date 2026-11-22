@@ -1,4 +1,3 @@
-import { Container } from './components/Container'
 import { PageGuard } from './components/PageGuard'
 import { PublicLayout } from './layout'
 import { HomePage } from './pages/HomePage'
@@ -14,15 +13,6 @@ import { BlogDetailPage } from './pages/BlogDetailPage'
 
 // Public site ke SAARE routes yahin (admin/routes.jsx ki tarah).
 // Naya page: pages/ mein file banao, yahan ek line. Abhi pages placeholder hain, ek ek karke replace honge.
-function Soon({ title }) {
-  return (
-    <Container className="py-24 text-center">
-      <h1 className="text-4xl">{title}</h1>
-      <p className="mt-2 text-muted">This page will be built in an upcoming step.</p>
-    </Container>
-  )
-}
-
 export const publicRoutes = [
   {
     path: '/:slug',
