@@ -7,7 +7,7 @@ import { api, client } from './client'
 //   VITE_PUBLIC_MOCK=true   (default) -> src/public/mock ka fake data
 //   VITE_PUBLIC_MOCK=false            -> real backend
 // Components sirf `publicApi` use karte hain, switch ka unhein pata nahi chalta.
-export const USE_PUBLIC_MOCK = import.meta.env.VITE_PUBLIC_MOCK !== 'true'
+export const USE_PUBLIC_MOCK = import.meta.env.DEV && import.meta.env.VITE_PUBLIC_MOCK === 'true'
 
 const base = (slug) => `/public/${encodeURIComponent(slug)}`
 const opts = { skipAuth: true }
