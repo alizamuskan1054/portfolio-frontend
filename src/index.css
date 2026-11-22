@@ -1,0 +1,94 @@
+@import 'tailwindcss';
+
+/* class-based dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tailwind colors = CSS variables (ThemeProvider set karta hai).
+   Opacity utilities kaam karti hain: bg-primary/10, border-line/60 */
+@theme inline {
+  --color-background: var(--c-background);
+  --color-surface: var(--c-surface);
+  --color-card: var(--c-card);
+  --color-blue-tint: var(--c-blue-tint);
+  --color-navy: var(--c-navy);
+  --color-on-navy: var(--c-on-navy);
+  --color-primary: var(--c-primary);
+  --color-primary-hover: var(--c-primary-hover);
+  --color-primary-soft: var(--c-primary-soft);
+  --color-on-primary: var(--c-on-primary);
+  --color-accent: var(--c-accent);
+  --color-accent-text: var(--c-accent-text);
+  --color-heading: var(--c-heading);
+  --color-body: var(--c-body);
+  --color-muted: var(--c-muted);
+  --color-line: var(--c-line);
+  --color-success: var(--c-success);
+  --color-warning: var(--c-warning);
+  --color-danger: var(--c-danger);
+  --color-on-danger: var(--c-on-danger);
+
+  --font-sans: var(--f-body);
+  --font-serif: var(--f-heading);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background font-sans text-base text-body antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-serif text-heading;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
+}
+
+/* Rich text editor (Tiptap) content */
+.rte-content p {
+  margin: 0 0 0.6em;
+}
+.rte-content h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0.8em 0 0.4em;
+  color: var(--c-heading);
+}
+.rte-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.8em 0 0.4em;
+  color: var(--c-heading);
+}
+.rte-content ul {
+  list-style: disc;
+  padding-left: 1.4em;
+  margin: 0 0 0.6em;
+}
+.rte-content ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+  margin: 0 0 0.6em;
+}
+.rte-content blockquote {
+  border-left: 3px solid var(--c-line);
+  padding-left: 0.8em;
+  color: var(--c-muted);
+  margin: 0 0 0.6em;
+}
+.rte-content a {
+  color: var(--c-primary);
+  text-decoration: underline;
+}
+.rte-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--c-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
