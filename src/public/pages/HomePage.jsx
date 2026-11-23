@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/refs -- useTilt/useSpotlight ke ref aur handlers sirf mouse events par chalte hain, render mein ref.current nahi padha jata */
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -279,6 +278,9 @@ const clamp = (lines) => ({
   overflow: 'hidden',
 })
 
+// Card ke paragraph: justify + hyphenation + line-clamp (zyada text ho to ... aata hai)
+const clampJ = (lines) => ({ ...clamp(lines), textAlign: 'justify', hyphens: 'auto', textAlignLast: 'left' })
+
 const asText = (value) =>
   value && typeof value === 'object' ? (value.name ?? value.title ?? value.full_name ?? '') : (value ?? '')
 
@@ -341,9 +343,12 @@ function useInView(ref, margin = '0px 0px -8% 0px') {
 // 0 se target tak ginta hai (reduced-motion par seedha target)
 function useCountUp(target, active, duration = 1100) {
   const [value, setValue] = useState(0)
-  const instant = prefersReducedMotion() || !target
   useEffect(() => {
-    if (!active || instant) return undefined
+    if (!active) return undefined
+    if (prefersReducedMotion() || !target) {
+      setValue(target)
+      return undefined
+    }
     let frame
     const start = performance.now()
     const tick = (now) => {
@@ -353,8 +358,8 @@ function useCountUp(target, active, duration = 1100) {
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [target, active, instant, duration])
-  return active && instant ? target : value
+  }, [target, active, duration])
+  return value
 }
 
 // Scroll par ek baar halka sa andar aata hai. Sirf cards/list ke liye.
@@ -1136,7 +1141,7 @@ function ResearchInterestsSection() {
                   />
                   <h3 className="text-xl">{item.title}</h3>
                   {item.description && (
-                    <p className="mt-3 leading-relaxed text-body" style={clamp(4)}>
+                    <p className="mt-3 leading-relaxed text-body" style={clampJ(4)}>
                       {item.description}
                     </p>
                   )}
@@ -1211,7 +1216,7 @@ function HomeProjectCard({ project, to }) {
           {project.title}
         </h3>
         {text && (
-          <p className="text-muted" style={{ fontSize: '0.8125rem', lineHeight: 1.65, marginTop: '0.5rem', ...clamp(3) }}>
+          <p className="text-muted" style={{ fontSize: '0.8125rem', lineHeight: 1.65, marginTop: '0.5rem', ...clampJ(3) }}>
             {text}
           </p>
         )}
@@ -1713,7 +1718,7 @@ function HomeBlogCard({ blog, to }) {
           {title}
         </h3>
         {excerpt && (
-          <p className="text-muted" style={{ fontSize: '0.8125rem', lineHeight: 1.65, marginTop: '0.5rem', ...clamp(3) }}>
+          <p className="text-muted" style={{ fontSize: '0.8125rem', lineHeight: 1.65, marginTop: '0.5rem', ...clampJ(3) }}>
             {excerpt}
           </p>
         )}

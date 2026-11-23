@@ -599,7 +599,7 @@ function FeaturedService({ service, slug }) {
           </span>
           <h2 className="mt-4 text-2xl sm:text-3xl">{service.title}</h2>
           {service.short_description && (
-            <p className="mt-3 leading-relaxed text-body">{service.short_description}</p>
+            <p className="mt-3 line-clamp-[8] text-justify [hyphens:auto] [text-align-last:left] leading-relaxed text-body">{service.short_description}</p>
           )}
           <span className="mt-5 block h-px w-full bg-linear-to-r from-primary/40 via-accent/40 to-transparent" aria-hidden="true" />
           <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -650,18 +650,13 @@ function ServiceTile({ service, index, slug }) {
         )}
 
         <div className="relative flex flex-1 flex-col p-5 sm:p-6">
-          <span
-            className="sv-num-ghost absolute top-4 right-5 text-4xl"
-            aria-hidden="true"
-          >
-            {pad(index + 1)}
-          </span>
-
           {!service.image && <IconTile name={service.icon} variant="gradient" size="lg" className="mb-5" />}
           <p className="text-xs font-semibold tracking-widest text-primary uppercase">Service {pad(index + 1)}</p>
           <h3 className="mt-2 text-lg sm:text-xl">{service.title}</h3>
           {service.short_description && (
-            <p className="mt-3 flex-1 leading-relaxed text-body">{service.short_description}</p>
+            <p className="mt-3 line-clamp-[6] flex-1 text-justify [hyphens:auto] [text-align-last:left] leading-relaxed text-body" title={service.short_description}>
+              {service.short_description}
+            </p>
           )}
 
           <div className="mt-5 flex items-center justify-between border-t border-line pt-4 text-sm font-semibold text-primary">
@@ -733,9 +728,6 @@ function HowIWork({ steps }) {
             <Reveal as="li" key={step.id ?? i} delay={i * 110} style={{ height: '100%' }}>
               <div className="sv-step h-full p-5 sm:p-6">
                 <span className="sv-step-bar" aria-hidden="true" />
-                <span className="sv-num-ghost absolute top-3 right-4 text-4xl" aria-hidden="true">
-                  {pad(i + 1)}
-                </span>
                 <div className="relative">
                   <span className="sv-step-num" aria-hidden="true">
                     {pad(i + 1)}
@@ -744,7 +736,14 @@ function HowIWork({ steps }) {
                     <span className="sr-only">Step {i + 1}: </span>
                     {step.title}
                   </h3>
-                  {step.description && <p className="mt-2 leading-relaxed text-body">{step.description}</p>}
+                  {step.description && (
+                    <p
+                      className="mt-2 line-clamp-[8] text-justify [hyphens:auto] [text-align-last:left] leading-relaxed text-body"
+                      title={step.description}
+                    >
+                      {step.description}
+                    </p>
+                  )}
                 </div>
               </div>
             </Reveal>

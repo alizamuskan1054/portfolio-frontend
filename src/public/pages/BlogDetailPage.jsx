@@ -527,7 +527,7 @@ function RelatedCard({ blog, to }) {
           )}
         </p>
         <h3 className="mt-2 line-clamp-2 text-lg leading-snug transition-colors group-hover:text-primary">{blog.title}</h3>
-        {excerpt && <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted">{excerpt}</p>}
+        {excerpt && <p className="mt-2 line-clamp-3 text-justify [hyphens:auto] [text-align-last:left] text-sm leading-relaxed text-muted">{excerpt}</p>}
         <span className="mt-auto inline-flex items-center gap-1 pt-3.5 text-sm font-semibold text-primary">
           Read more
           <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />

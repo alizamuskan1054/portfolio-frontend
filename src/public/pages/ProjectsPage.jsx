@@ -257,7 +257,7 @@ function ProjectCard({ project, to, index }) {
           {project.title}
         </h3>
         {project.short_description && (
-          <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-body">{project.short_description}</p>
+          <p className="mt-2 line-clamp-3 text-justify [hyphens:auto] [text-align-last:left] text-sm leading-relaxed text-body">{project.short_description}</p>
         )}
 
         <div className="mt-auto flex items-center justify-between pt-5">
@@ -308,7 +308,7 @@ function FeaturedProjectCard({ project, to }) {
           {project.title}
         </h3>
         {project.short_description && (
-          <p className="mt-3 text-base leading-relaxed text-body">{project.short_description}</p>
+          <p className="mt-3 line-clamp-[6] text-justify [hyphens:auto] [text-align-last:left] text-base leading-relaxed text-body">{project.short_description}</p>
         )}
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
