@@ -872,7 +872,7 @@ function Hero({ services, stepCount, showProcess }) {
       <span aria-hidden="true" className="sv-dots" />
 
       {/* services orbit: hub ke gird ghoomti hain (sirf xl+ screens par) */}
-      <div aria-hidden="true" className="sv-stage hidden min-[1400px]:block">
+      <div aria-hidden="true" className="sv-stage hidden min-[1100px]:block">
         {rings.map((o, r) => (
           <span key={r} className="sv-stage-ring" style={{ '--rx': `${o.r}cqh`, '--ry': `${o.r}cqh` }} />
         ))}
