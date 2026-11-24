@@ -24,22 +24,22 @@ export function ProgressSteps({
 
             const content = (
               <>
-                <span className="flex size-6 shrink-0 items-center justify-center">
+                <span className="flex size-5 shrink-0 items-center justify-center">
                   {done ? (
-                    <span className="from-navy to-primary flex size-6 items-center justify-center rounded-full bg-linear-to-br text-white shadow-sm">
-                      <Check className="size-3.5" strokeWidth={3} />
+                    <span className="from-navy to-primary flex size-5 items-center justify-center rounded-full bg-linear-to-br text-white shadow-sm">
+                      <Check className="size-3" strokeWidth={3} />
                     </span>
                   ) : active ? (
-                    <span className="border-primary bg-card flex size-6 items-center justify-center rounded-full border-2">
-                      <span className="from-navy to-primary size-2.5 rounded-full bg-linear-to-br" />
+                    <span className="border-primary bg-card flex size-5 items-center justify-center rounded-full border-2">
+                      <span className="from-navy to-primary size-2 rounded-full bg-linear-to-br" />
                     </span>
                   ) : (
-                    <span className="bg-line size-2.5 rounded-full" />
+                    <span className="bg-line size-2 rounded-full" />
                   )}
                 </span>
                 <span
                   className={cn(
-                    'truncate text-sm whitespace-nowrap transition-colors',
+                    'text-xs whitespace-nowrap transition-colors',
                     !active && 'hidden md:inline',
                     active
                       ? 'text-heading font-semibold'
@@ -56,7 +56,7 @@ export function ProgressSteps({
             const common = {
               'aria-current': active ? 'step' : undefined,
               className: cn(
-                'flex min-w-0 items-center gap-2 rounded-md',
+                'flex shrink-0 items-center gap-1.5 rounded-md',
                 clickable ? 'hover:text-primary cursor-pointer' : 'cursor-default',
               ),
             }
@@ -64,7 +64,7 @@ export function ProgressSteps({
             return (
               <li
                 key={step.key}
-                className={cn('flex min-w-0 items-center', i < steps.length - 1 ? 'flex-1' : 'shrink-0')}
+                className={cn('flex items-center', i < steps.length - 1 ? 'flex-1' : 'shrink-0')}
               >
                 {href ? (
                   <Link to={href} {...common}>
@@ -86,7 +86,7 @@ export function ProgressSteps({
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'mx-2 h-0.5 min-w-2 flex-1 rounded-full',
+                      'mx-1.5 h-0.5 min-w-1.5 flex-1 rounded-full',
                       i < current ? 'from-navy to-primary bg-linear-to-r' : 'bg-line',
                     )}
                   />
