@@ -26,6 +26,7 @@ import { Brand } from '@/components/shared/Brand'
 import { FormLayoutContext } from '@/components/ui/modal-context'
 import { BreadcrumbProvider, Breadcrumbs } from '@/components/shared/Breadcrumbs'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { LogoutDialog } from '@/components/shared/LogoutDialog'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { Avatar } from '@/components/ui/Avatar'
@@ -128,8 +129,11 @@ function NotificationBell() {
 
 function ProfileMenu() {
   const { user, logout } = useAuth()
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   return (
+    <>
     <DropdownMenu
       label="Account menu"
       trigger={
@@ -146,9 +150,24 @@ function ProfileMenu() {
       }
       items={[
         { label: 'Profile', icon: User, to: paths.adminProfile },
-        { label: 'Logout', icon: LogOut, danger: true, onClick: logout },
+        { label: 'Logout', icon: LogOut, danger: true, onClick: () => setConfirming(true) },
       ]}
     />
+    <LogoutDialog
+      open={confirming}
+      loading={busy}
+      onClose={() => setConfirming(false)}
+      onConfirm={async () => {
+        setBusy(true)
+        try {
+          await logout()
+        } finally {
+          setBusy(false)
+          setConfirming(false)
+        }
+      }}
+    />
+    </>
   )
 }
 
