@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
-import { SCROLL_X } from '@/lib/scrollbar'
 import { cn } from '@/lib/utils'
 
 // Admin wizard aur client portal dono ka stepper: ek row, chhote circles, navy gradient.
@@ -15,8 +14,8 @@ export function ProgressSteps({
 }) {
   return (
     <nav aria-label="Progress" className={cn('mb-6', className)}>
-      <div className={cn('overflow-x-auto pb-2', SCROLL_X)}>
-        <ol className="flex min-w-max items-center">
+      <div>
+        <ol className="flex items-center">
           {steps.map((step, i) => {
             const done = i < current
             const active = i === current
@@ -40,7 +39,8 @@ export function ProgressSteps({
                 </span>
                 <span
                   className={cn(
-                    'text-sm whitespace-nowrap transition-colors',
+                    'truncate text-sm whitespace-nowrap transition-colors',
+                    !active && 'hidden md:inline',
                     active
                       ? 'text-heading font-semibold'
                       : done
@@ -56,7 +56,7 @@ export function ProgressSteps({
             const common = {
               'aria-current': active ? 'step' : undefined,
               className: cn(
-                'flex items-center gap-2 rounded-md',
+                'flex min-w-0 items-center gap-2 rounded-md',
                 clickable ? 'hover:text-primary cursor-pointer' : 'cursor-default',
               ),
             }
@@ -64,7 +64,7 @@ export function ProgressSteps({
             return (
               <li
                 key={step.key}
-                className={cn('flex items-center', i < steps.length - 1 && 'flex-1')}
+                className={cn('flex min-w-0 items-center', i < steps.length - 1 ? 'flex-1' : 'shrink-0')}
               >
                 {href ? (
                   <Link to={href} {...common}>
@@ -86,7 +86,7 @@ export function ProgressSteps({
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'mx-3 h-0.5 min-w-8 flex-1 rounded-full',
+                      'mx-2 h-0.5 min-w-2 flex-1 rounded-full',
                       i < current ? 'from-navy to-primary bg-linear-to-r' : 'bg-line',
                     )}
                   />
