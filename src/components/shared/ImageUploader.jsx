@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera, ImagePlus, Trash2 } from 'lucide-react'
+import { Camera, ImagePlus, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { CameraCaptureModal } from '@/components/shared/CameraCaptureModal'
 import { ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE_MB } from '@/lib/constants'
@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 const shapes = {
   circle: 'size-32 rounded-full',
+  'circle-sm': 'size-28 rounded-full',
   square: 'size-40 rounded-xl',
   wide: 'aspect-video w-full max-w-md rounded-xl',
 }
@@ -24,6 +25,7 @@ export function ImageUploader({
   error,
   disabled = false,
   camera = true, // live capture ka button
+  showHint = true, // "PNG, JPG..." wali line
   className,
 }) {
   const inputRef = useRef(null)
@@ -139,28 +141,40 @@ export function ImageUploader({
       />
 
       {!disabled && (
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            aria-label={preview ? 'Change image' : 'Upload image'}
+            title={preview ? 'Change image' : 'Upload image'}
+            onClick={() => inputRef.current?.click()}
+          >
+            <Upload className="size-4" />
+          </Button>
           {canCapture && (
             <Button
               type="button"
               variant="secondary"
-              size="sm"
+              size="icon-sm"
+              aria-label="Use camera"
+              title="Use camera"
               onClick={() => setCameraOpen(true)}
             >
               <Camera className="size-4" />
-              Use camera
             </Button>
           )}
           {preview && (
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="icon-sm"
+              aria-label="Remove image"
+              title="Remove"
               onClick={removeFile}
-              className="text-danger hover:text-danger"
+              className="text-danger hover:bg-danger/10 hover:text-danger"
             >
               <Trash2 className="size-4" />
-              Remove
             </Button>
           )}
         </div>
@@ -179,7 +193,9 @@ export function ImageUploader({
           {message}
         </p>
       ) : (
-        <p className="text-xs text-muted">PNG, JPG or WebP, up to {maxSizeMB} MB.</p>
+        showHint && (
+          <p className="text-xs text-muted">PNG, JPG or WebP, up to {maxSizeMB} MB.</p>
+        )
       )}
     </div>
   )

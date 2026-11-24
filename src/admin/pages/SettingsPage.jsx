@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { GraduationCap, Moon, Sun } from 'lucide-react'
+import { GraduationCap } from 'lucide-react'
 import { configApi } from '@/api/endpoints'
 import { applyServerErrors } from '@/api/errors'
 import { ErrorState } from '@/components/shared/ErrorState'
@@ -11,47 +11,40 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { buildFilePayload } from '@/lib/formData'
 import { notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 
-const FIELDS = ['platform_name', 'logo', 'default_theme', 'default_typography']
+const FIELDS = ['platform_name', 'logo']
+const DEFAULT_NAME = 'Portfolio Builder'
+const GRADIENT = 'linear-gradient(90deg, var(--c-primary), var(--c-accent))'
 
-const FALLBACK_THEMES = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-]
-const FALLBACK_FONTS = [
-  'inter',
-  'poppins',
-  'roboto',
-  'lato',
-  'merriweather',
-  'playfair-display',
-].map((v) => ({ value: v, label: prettify(v) }))
-
-function prettify(value) {
-  return String(value)
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+// Card ke upar patli gradient line
+function TopBar() {
+  return <span className="absolute inset-x-0 top-0 h-1" style={{ background: GRADIENT }} aria-hidden="true" />
 }
 
-// DRF OPTIONS se choices (nahi mile to fallback). Current value hamesha list mein rakhte hain.
-function choicesFor(meta, name, fallback, current) {
-  const fromApi =
-    meta?.actions?.PUT?.[name]?.choices ?? meta?.actions?.PATCH?.[name]?.choices
-  const list = fromApi?.length
-    ? fromApi.map((c) => ({ value: c.value, label: c.display_name }))
-    : fallback
-  if (current && !list.some((o) => o.value === current)) {
-    return [{ value: current, label: prettify(current) }, ...list]
-  }
-  return list
+// Logo (ya default icon) + naam: preview dono jagah isi se banta hai
+function BrandMark({ logo, name }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      {logo ? (
+        // koi background nahi: safed logo navy par saaf dikhta hai
+        <img src={logo} alt="" className="size-10 shrink-0 object-contain" />
+      ) : (
+        <span className="bg-primary text-on-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+          <GraduationCap className="size-5" />
+        </span>
+      )}
+      <span className="text-on-navy truncate font-serif text-lg font-semibold">
+        {name || DEFAULT_NAME}
+      </span>
+    </div>
+  )
 }
 
-function SettingsForm({ settings, meta }) {
+function SettingsForm({ settings }) {
   const queryClient = useQueryClient()
   const {
     register,
@@ -69,18 +62,6 @@ function SettingsForm({ settings, meta }) {
     },
   })
 
-  const themes = choicesFor(
-    meta,
-    'default_theme',
-    FALLBACK_THEMES,
-    settings.default_theme,
-  )
-  const fonts = choicesFor(
-    meta,
-    'default_typography',
-    FALLBACK_FONTS,
-    settings.default_typography,
-  )
   const name = useWatch({ control, name: 'platform_name' })
   const logo = useWatch({ control, name: 'logo' })
 
@@ -129,29 +110,31 @@ function SettingsForm({ settings, meta }) {
   )
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-6">
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
       {errors.root?.server && (
         <p role="alert" className="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm">
           {errors.root.server.message}
         </p>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
+      <div className="grid items-start gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <Card className="relative overflow-hidden">
+            <TopBar />
             <CardHeader
+              className="p-4"
               title="Brand"
               description="Shown in the sidebar, login pages and emails."
             />
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-4 p-4">
               <FormField
-                label="Platform name"
+                label="Name"
                 required
                 error={errors.platform_name?.message}
               >
                 <Input
                   autoComplete="off"
-                  placeholder="Portfolio Builder"
+                  placeholder={DEFAULT_NAME}
                   {...register('platform_name', {
                     required: 'Platform name is required',
                     maxLength: { value: 100, message: 'Max 100 characters' },
@@ -173,104 +156,32 @@ function SettingsForm({ settings, meta }) {
               />
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader
-              title="Defaults for new portfolios"
-              description="New public websites start with these. Each portfolio can still be changed later."
-            />
-            <CardContent className="space-y-5">
-              <div>
-                <p className="text-heading mb-2 text-sm font-medium">Default theme</p>
-                <Controller
-                  name="default_theme"
-                  control={control}
-                  render={({ field }) => (
-                    <div role="radiogroup" className="grid grid-cols-2 gap-3 sm:max-w-md">
-                      {themes.map((t) => {
-                        const selected = field.value === t.value
-                        const Icon = t.value === 'dark' ? Moon : Sun
-                        return (
-                          <button
-                            key={t.value}
-                            type="button"
-                            role="radio"
-                            aria-checked={selected}
-                            onClick={() => field.onChange(t.value)}
-                            className={cn(
-                              'flex items-center gap-3 rounded-xl border p-3 text-left transition-colors',
-                              selected
-                                ? 'border-primary bg-primary-soft ring-primary/30 ring-2'
-                                : 'border-line bg-card hover:border-primary',
-                            )}
-                          >
-                            <span className="bg-surface text-primary flex size-9 items-center justify-center rounded-lg">
-                              <Icon className="size-4" />
-                            </span>
-                            <span className="text-heading text-sm font-medium">
-                              {t.label}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                />
-                {errors.default_theme && (
-                  <p role="alert" className="text-danger mt-1.5 text-xs">
-                    {errors.default_theme.message}
-                  </p>
-                )}
-              </div>
-
-              <FormField
-                label="Default typography"
-                error={errors.default_typography?.message}
-                hint="Font family used on public websites."
-              >
-                <Select placeholder="Select a font" {...register('default_typography')}>
-                  {fonts.map((f) => (
-                    <option key={f.value} value={f.value}>
-                      {f.label}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Live preview */}
-        <div className="lg:sticky lg:top-24 lg:self-start">
-          <Card>
+        {/* Live preview: sidebar (dark) aur login/email (light) */}
+        <div className="lg:sticky lg:top-24">
+          <Card className="relative overflow-hidden">
+            <TopBar />
             <CardHeader
+              className="p-4"
               title="Preview"
               description="How your brand looks in the sidebar."
             />
-            <CardContent>
-              <div className="bg-navy flex items-center gap-3 rounded-xl p-4">
-                {previewLogo ? (
-                  <img
-                    src={previewLogo}
-                    alt=""
-                    className="size-9 rounded-lg bg-white object-contain"
-                  />
-                ) : (
-                  <span className="bg-primary text-on-primary flex size-9 items-center justify-center rounded-lg">
-                    <GraduationCap className="size-5" />
-                  </span>
-                )}
-                <span className="text-on-navy truncate font-serif text-lg font-semibold">
-                  {name || 'Portfolio Builder'}
-                </span>
+            <CardContent className="p-4">
+              <div className="bg-navy rounded-xl p-4">
+                <BrandMark logo={previewLogo} name={name} />
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      <div className="bg-background/90 border-line sm:bg-card sticky bottom-0 -mx-4 flex flex-col-reverse gap-3 border-t px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:items-center sm:justify-between sm:rounded-xl sm:border">
-        <p className="text-muted text-sm">
+      <div className="bg-background/90 border-line sm:bg-card sticky bottom-0 -mx-4 flex flex-col-reverse gap-3 border-t px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:items-center sm:justify-between sm:rounded-xl sm:border sm:shadow-sm">
+        <p className="text-muted flex items-center gap-2 text-sm" role="status">
+          <span
+            className={cn('size-2 rounded-full', isDirty ? 'bg-accent' : 'bg-success')}
+            aria-hidden="true"
+          />
           {isDirty ? 'You have unsaved changes.' : 'All changes saved.'}
         </p>
         <div className="flex flex-col-reverse gap-3 sm:flex-row">
@@ -295,23 +206,17 @@ export function SettingsPage() {
     queryKey: ['config', 'settings'],
     queryFn: configApi.getSettings,
   })
-  const meta = useQuery({
-    queryKey: ['config', 'settings-meta'],
-    queryFn: () => configApi.getSettingsMeta().catch(() => null),
-    staleTime: Infinity,
-    retry: false,
-  })
-
   return (
     <>
       <PageHeader
+        className="mb-4"
         title="Settings"
-        description="Platform brand and defaults for new portfolios."
+        description="Platform name and logo."
       />
       {settings.isLoading ? (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Skeleton className="h-96 lg:col-span-2" />
-          <Skeleton className="h-40" />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-80 lg:col-span-2" />
+          <Skeleton className="h-64" />
         </div>
       ) : settings.isError ? (
         <ErrorState error={settings.error} onRetry={settings.refetch} />
@@ -319,7 +224,6 @@ export function SettingsPage() {
         <SettingsForm
           key={settings.dataUpdatedAt}
           settings={settings.data ?? {}}
-          meta={meta.data}
         />
       )}
     </>

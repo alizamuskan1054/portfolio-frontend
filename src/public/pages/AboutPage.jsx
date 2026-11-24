@@ -25,7 +25,17 @@ import { formatPeriod } from '@/public/lib/period'
 // Data: usePublicSite (portfolio) + useAcademic (educations, experiences, expertise, awards, memberships, research_interests).
 // Koi naya API call ya library nahi: metrics hata diye, floating badges academic data se aate hain.
 // Motion: sirf hero ka ek page-load sequence (CSS transitions). prefers-reduced-motion par band.
+// v2: Biography + Education + Experience ka content justify. Awards ke icon par theme gradient (primary -> accent).
 // =====================================================================================
+
+// Justify (hyphenation ke saath), aakhri line left par rehti hai
+const JUSTIFY = 'text-justify hyphens-auto [text-align-last:left]'
+
+// Timeline ke andar ke paragraphs justify (Timeline component ko chhuay bina)
+const TIMELINE_JUSTIFY = '[&_p]:text-justify [&_p]:hyphens-auto [&_p]:[text-align-last:left]'
+
+// Theme gradient: Home page ke icons wala hi (primary -> accent)
+const THEME_GRADIENT = { background: 'linear-gradient(135deg, var(--c-primary, #2563eb), var(--c-accent, #f59e0b))' }
 
 // ---------- Helpers ----------
 
@@ -238,9 +248,9 @@ function BiographySection({ paragraphs, facts }) {
         <div>
           <SectionHeading eyebrow="Biography" title="A little about me" className="mb-5" />
           <div className="space-y-4">
-            <p className="text-lg leading-relaxed text-heading">{lead}</p>
+            <p className={`text-lg leading-relaxed text-heading ${JUSTIFY}`}>{lead}</p>
             {rest.map((text, i) => (
-              <p key={i} className="leading-relaxed text-body">
+              <p key={i} className={`leading-relaxed text-body ${JUSTIFY}`}>
                 {text}
               </p>
             ))}
@@ -313,7 +323,9 @@ function EducationExperienceSection({ educations, experiences, showEducation, sh
         {columns.map((col) => (
           <div key={col.key}>
             <ColumnHeading icon={col.icon} title={col.title} />
-            <Timeline items={col.items} />
+            <div className={TIMELINE_JUSTIFY}>
+              <Timeline items={col.items} />
+            </div>
           </div>
         ))}
       </div>
@@ -349,7 +361,10 @@ function ExpertiseSection({ items }) {
 function AwardCard({ award }) {
   return (
     <Card hoverable className="flex items-start gap-4 p-4">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-text">
+      <span
+        className="flex size-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm"
+        style={THEME_GRADIENT}
+      >
         <Award className="size-5" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1">

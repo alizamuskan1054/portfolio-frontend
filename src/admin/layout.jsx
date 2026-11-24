@@ -1,7 +1,7 @@
 // Admin ke layouts: AuthLayout (login pages), AdminLayout (sidebar + topbar), aur admin 404.
 
 import { useAuth } from '@/admin/auth'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import {
@@ -17,7 +17,14 @@ import {
   Users,
 } from 'lucide-react'
 import { useUnreadNotifications } from '@/features/notifications/useUnreadNotifications'
+import {
+  AppSidebar,
+  SidebarEdgeToggle,
+  useSidebarOpen,
+} from '@/components/shared/AppSidebar'
 import { Brand } from '@/components/shared/Brand'
+import { FormLayoutContext } from '@/components/ui/modal-context'
+import { BreadcrumbProvider, Breadcrumbs } from '@/components/shared/Breadcrumbs'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
@@ -61,7 +68,9 @@ export function AuthLayout() {
         <main className="flex flex-1 items-center justify-center px-6 pb-16">
           <div className="w-full max-w-md">
             <Brand className="mb-8 lg:hidden" />
-            <Outlet />
+            <FormLayoutContext.Provider value="stack">
+              <Outlet />
+            </FormLayoutContext.Provider>
           </div>
         </main>
       </div>
@@ -79,49 +88,22 @@ const NAV = [
     label: 'Notifications',
     to: paths.adminNotifications,
     icon: Bell,
-    badge: true,
+    badge: 'notifications',
   },
   { label: 'Settings', to: paths.adminSettings, icon: Settings },
 ]
 
-function SidebarContent({ onNavigate }) {
+function SidebarContent({ collapsed, onNavigate, onClose }) {
   const unread = useUnreadNotifications()
-
   return (
-    <div className="bg-navy text-on-navy flex h-full w-64 flex-col">
-      <div className="flex h-16 shrink-0 items-center border-b border-white/10 px-5">
-        <Brand inverted />
-      </div>
-
-      <nav aria-label="Main" className="flex-1 space-y-1 overflow-y-auto p-3">
-        {NAV.map(({ label, to, icon: Icon, end, badge }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary text-on-primary'
-                  : 'text-on-navy/70 hover:text-on-navy hover:bg-white/10',
-              )
-            }
-          >
-            <Icon className="size-5" />
-            {label}
-            {badge && unread > 0 && (
-              <span className="bg-danger ml-auto flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-5 font-semibold text-white">
-                {unread > 99 ? '99+' : unread}
-              </span>
-            )}
-          </NavLink>
-        ))}
-      </nav>
-
-      <p className="text-on-navy/50 border-t border-white/10 p-4 text-xs">Admin panel</p>
-    </div>
+    <AppSidebar
+      nav={NAV}
+      counts={{ notifications: unread }}
+      footer="Admin panel"
+      collapsed={collapsed}
+      onNavigate={onNavigate}
+      onClose={onClose}
+    />
   )
 }
 
@@ -172,63 +154,82 @@ function ProfileMenu() {
 
 export function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useSidebarOpen()
 
   return (
-    <div className="bg-background min-h-screen lg:pl-64">
-      <a
-        href="#main"
-        className="focus:bg-primary focus:text-on-primary sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:px-4 focus:py-2"
+    <BreadcrumbProvider>
+      <div
+        className={cn(
+          'bg-background min-h-screen transition-[padding] duration-200',
+          sidebarOpen ? 'lg:pl-64' : 'lg:pl-16',
+        )}
       >
-        Skip to content
-      </a>
-
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden lg:block">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile drawer */}
-      <Dialog
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        className="relative z-40 lg:hidden"
-      >
-        <DialogBackdrop
-          transition
-          className="bg-navy/60 fixed inset-0 transition-opacity duration-200 data-closed:opacity-0"
-        />
-        <div className="fixed inset-0 flex">
-          <DialogPanel
-            transition
-            className="relative transition duration-200 ease-out data-closed:-translate-x-full"
-          >
-            <SidebarContent onNavigate={() => setMobileOpen(false)} />
-          </DialogPanel>
-        </div>
-      </Dialog>
-
-      <header className="border-line bg-background/90 sticky top-0 z-20 flex h-16 items-center gap-2 border-b px-4 backdrop-blur sm:px-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
-          aria-label="Open menu"
-          onClick={() => setMobileOpen(true)}
+        <a
+          href="#main"
+          className="focus:bg-primary focus:text-on-primary sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:px-4 focus:py-2"
         >
-          <Menu className="size-5" />
-        </Button>
-        <div className="flex-1" />
-        <NotificationBell />
-        <ThemeToggle />
-        <ProfileMenu />
-      </header>
+          Skip to content
+        </a>
 
-      <main id="main" className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
-        <Outlet />
-      </main>
+        {/* Desktop sidebar */}
+        <aside className="fixed inset-y-0 left-0 z-30 hidden lg:block">
+          <SidebarContent
+            collapsed={!sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
+        </aside>
+        <SidebarEdgeToggle
+          open={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+        />
 
-      <ScrollToTop className="right-4 bottom-24 sm:right-6" />
-    </div>
+        {/* Mobile drawer */}
+        <Dialog
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          className="relative z-40 lg:hidden"
+        >
+          <DialogBackdrop
+            transition
+            className="bg-navy/60 fixed inset-0 transition-opacity duration-200 data-closed:opacity-0"
+          />
+          <div className="fixed inset-0 flex">
+            <DialogPanel
+              transition
+              className="relative transition duration-200 ease-out data-closed:-translate-x-full"
+            >
+              <SidebarContent
+                onNavigate={() => setMobileOpen(false)}
+                onClose={() => setMobileOpen(false)}
+              />
+            </DialogPanel>
+          </div>
+        </Dialog>
+
+        <header className="border-line bg-background/90 sticky top-0 z-20 flex h-16 items-center gap-2 border-b px-4 backdrop-blur sm:px-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            aria-label="Open menu"
+            onClick={() => setMobileOpen(true)}
+          >
+            <Menu className="size-5" />
+          </Button>
+          <div className="flex-1" />
+          <NotificationBell />
+          <ThemeToggle />
+          <ProfileMenu />
+        </header>
+
+        <main id="main" className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+          <Breadcrumbs base="/admin" />
+          <Outlet />
+        </main>
+
+        <ScrollToTop className="right-4 bottom-24 sm:right-6" />
+      </div>
+    </BreadcrumbProvider>
   )
 }
 

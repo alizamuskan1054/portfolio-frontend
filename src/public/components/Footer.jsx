@@ -20,6 +20,22 @@ import { getVisibleNav } from '@/public/lib/nav'
 import { Container } from './Container'
 import { SocialLinks } from './SocialLinks'
 
+// =====================================================================================
+// FOOTER (responsive v2)
+//   Layout har screen par:
+//     < 640px      1 column  (brand, Explore, Get in touch ek ke neeche, patli lakeer se alag)
+//     640-1023px   2 columns (brand upar poori chaudai mein; neeche Explore | Get in touch)
+//     >= 1024px    3 columns (brand | Explore | Get in touch) wahi original look
+//   Pehle 768px par hi 3 columns ban jate thay jo tang ho kar naam 3 lines mein tootta aur
+//   Explore ke links (Services/Projects, Publications/Blogs) ek doosre par chadh jate thay.
+//   Ab: Explore ka grid auto-fill hai (column tang ho to 1 column, chaura ho to 2), har item
+//   min-w-0 + wrap, taake kabhi overlap na ho.
+//   Brand ka chhota text backend se (portfolio.short_intro / intro); na ho to default neeche.
+// =====================================================================================
+
+const DEFAULT_ABOUT =
+  'Researcher, educator, and technologist with interest in AI, Software Engineering, and High-Performance Computing.'
+
 // Neural lines (hero wali jaisi): sirf ye naya hai, baqi footer original hai
 function NeuralField({ opacity = 0.5 }) {
   const canvasRef = useRef(null)
@@ -148,10 +164,10 @@ function initialsOf(name = '') {
 // Footer heading
 function FooterHeading({ children, icon: Icon }) {
   return (
-    <div className="mb-6">
+    <div className="mb-5 sm:mb-6">
       <h2 className="flex items-center gap-3 text-sm font-bold uppercase tracking-[0.16em] text-accent">
         {Icon && (
-          <Icon className="size-5" aria-hidden="true" />
+          <Icon className="size-5 shrink-0" aria-hidden="true" />
         )}
         {children}
       </h2>
@@ -189,6 +205,9 @@ export function Footer() {
   const waDigits = String(
     contact?.whatsapp || contact?.phone || ''
   ).replace(/\D/g, '')
+
+  // Chhota intro backend se; na ho to default
+  const about = String(portfolio.short_intro || portfolio.intro || '').trim() || DEFAULT_ABOUT
 
   return (
     <footer className="relative isolate overflow-hidden bg-navy text-on-navy">
@@ -230,14 +249,17 @@ export function Footer() {
 
       {/* Main footer content */}
       <Container>
-        <div className="grid grid-cols-1 gap-10 py-12 md:grid-cols-[1.3fr_1fr_1fr] md:gap-8 md:py-14">
+        <div
+          className="grid grid-cols-1 gap-x-8 gap-y-10 py-10 sm:grid-cols-2 sm:py-12 lg:grid-cols-[1.3fr_1fr_1fr] lg:py-14"
+          style={{ paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom))' }}
+        >
 
-          {/* BRAND / PROFILE SECTION */}
-          <div className="md:pr-6">
+          {/* BRAND / PROFILE SECTION (sm par poori chaudai) */}
+          <div className="min-w-0 sm:col-span-2 lg:col-span-1 lg:pr-6">
 
             <Link
               to={paths.site(slug)}
-              className="group inline-flex items-center gap-4"
+              className="group inline-flex max-w-full items-center gap-4"
             >
               {/* Logo (backend) ya initials */}
               {portfolio.logo && !logoFailed ? (
@@ -245,11 +267,11 @@ export function Footer() {
                   src={portfolio.logo}
                   alt=""
                   onError={() => setLogoFailed(true)}
-                  className="h-14 w-auto max-w-40 shrink-0 rounded-2xl bg-white/95 object-contain p-1.5 shadow-lg"
+                  className="h-12 w-auto max-w-32 shrink-0 rounded-2xl bg-white/95 object-contain p-1.5 shadow-lg sm:h-14 sm:max-w-40"
                 />
               ) : (
                 <span
-                  className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl border border-accent/60 bg-primary text-xl font-bold text-on-primary shadow-lg"
+                  className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border border-accent/60 bg-primary text-lg font-bold text-on-primary shadow-lg sm:size-14 sm:text-xl"
                   aria-hidden="true"
                 >
                   {initialsOf(portfolio.full_name)}
@@ -257,13 +279,13 @@ export function Footer() {
               )}
 
               {/* Name and designation */}
-              <span className="border-l-2 border-accent pl-4">
-                <span className="block font-serif text-2xl font-bold text-on-navy transition-colors group-hover:text-accent">
+              <span className="min-w-0 border-l-2 border-accent pl-4">
+                <span className="block font-serif text-xl font-bold text-on-navy transition-colors group-hover:text-accent sm:text-2xl">
                   {portfolio.full_name}
                 </span>
 
                 {portfolio.designation && (
-                  <span className="mt-1 block text-sm text-on-navy/75">
+                  <span className="mt-1 block text-sm leading-snug text-on-navy/75">
                     {portfolio.designation}
                   </span>
                 )}
@@ -272,8 +294,7 @@ export function Footer() {
 
             {/* Description */}
             <p className="mt-5 max-w-md text-sm leading-relaxed text-on-navy/70">
-              Researcher, educator, and technologist with interest in
-              AI, Software Engineering, and High-Performance Computing.
+              {about}
             </p>
 
             {/* Social links */}
@@ -290,28 +311,29 @@ export function Footer() {
           {/* QUICK LINKS SECTION */}
           <nav
             aria-label="Footer navigation"
-            className="border-white/15 md:border-l md:pl-8"
+            className="min-w-0 border-t border-white/10 pt-8 sm:border-t-0 sm:pt-0 lg:border-l lg:border-white/15 lg:pl-8"
           >
             <FooterHeading icon={Layers}>
               Explore
             </FooterHeading>
 
-            <ul className="grid grid-cols-2 gap-x-5 gap-y-4">
+            {/* auto-fill: column tang ho to 1 column, chaura ho to 2 (links kabhi overlap nahi karte) */}
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-x-5 gap-y-4">
               {items.map((item) => {
                 const Icon = getNavIcon(item)
 
                 return (
-                  <li key={item.page}>
+                  <li key={item.page} className="min-w-0">
                     <Link
                       to={item.to}
-                      className="group inline-flex items-center gap-2 text-sm text-on-navy/80 transition-all duration-200 hover:translate-x-1 hover:text-accent"
+                      className="group inline-flex max-w-full items-center gap-2 text-sm text-on-navy/80 transition-all duration-200 hover:translate-x-1 hover:text-accent"
                     >
                       <Icon
                         className="size-4 shrink-0 text-on-navy/65 transition-colors group-hover:text-accent"
                         aria-hidden="true"
                       />
 
-                      <span>{item.label}</span>
+                      <span className="min-w-0 break-words">{item.label}</span>
                     </Link>
                   </li>
                 )
@@ -320,26 +342,26 @@ export function Footer() {
           </nav>
 
           {/* CONTACT SECTION */}
-          <div className="border-white/15 md:border-l md:pl-8">
+          <div className="min-w-0 border-t border-white/10 pt-8 sm:border-t-0 sm:border-l sm:border-white/15 sm:pt-0 sm:pl-8">
 
             <FooterHeading icon={Send}>
               Get in Touch
             </FooterHeading>
 
-            <div className="flex flex-col items-start gap-3">
+            <div className="flex flex-col items-stretch gap-3">
 
               {/* Email button */}
               {contact?.email && (
                 <a
                   href={`mailto:${contact.email}`}
-                  className="flex w-full max-w-sm items-center gap-3 rounded-xl border border-on-navy/20 bg-on-navy/5 px-4 py-3 text-sm text-on-navy/90 transition-all duration-300 hover:border-accent hover:bg-on-navy/10"
+                  className="flex w-full min-w-0 max-w-sm items-center gap-3 rounded-xl border border-on-navy/20 bg-on-navy/5 px-4 py-3 text-sm text-on-navy/90 transition-all duration-300 hover:border-accent hover:bg-on-navy/10"
                 >
                   <Mail
                     className="size-5 shrink-0 text-accent"
                     aria-hidden="true"
                   />
 
-                  <span className="truncate">
+                  <span className="min-w-0 truncate">
                     {contact.email}
                   </span>
 
@@ -353,14 +375,14 @@ export function Footer() {
                   href={`https://wa.me/${waDigits}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex w-full max-w-sm items-center gap-3 rounded-xl border border-[#25D366] bg-transparent px-4 py-3 text-sm font-semibold text-[#25D366] transition-all duration-300 hover:bg-[#25D366] hover:text-[#062b14]"
+                  className="group flex w-full min-w-0 max-w-sm items-center gap-3 rounded-xl border border-[#25D366] bg-transparent px-4 py-3 text-sm font-semibold text-[#25D366] transition-all duration-300 hover:bg-[#25D366] hover:text-[#062b14]"
                 >
                   <MessageCircle
                     className="size-5 shrink-0"
                     aria-hidden="true"
                   />
 
-                  <span>Chat on WhatsApp</span>
+                  <span className="min-w-0 truncate">Chat on WhatsApp</span>
 
                   <ChevronRight className="ml-auto size-4 shrink-0 transition-transform group-hover:translate-x-1" />
                 </a>

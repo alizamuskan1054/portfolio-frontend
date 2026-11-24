@@ -7,11 +7,13 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { FormField } from '@/components/shared/FormField'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { Checkbox } from '@/components/ui/Checkbox'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Switch } from '@/components/ui/Switch'
 import { notify } from '@/lib/notify'
+import { SCROLL_X } from '@/lib/scrollbar'
+import { cn } from '@/lib/utils'
 import { buildPayload, resources, toList, useSectionSchema } from '../sections'
 import { FieldControl } from './PortfolioItemPage'
 
@@ -44,24 +46,30 @@ function LinkRow({ fields, row, index, onChange, onRemove }) {
           variant="ghost"
           size="icon-sm"
           aria-label={`Remove link ${index + 1}`}
-          className="hover:bg-danger/10 hover:text-danger"
+          className="text-danger hover:bg-danger/10 hover:text-danger"
           onClick={onRemove}
         >
           <Trash2 className="size-4" />
         </Button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
         {fields.map((f) => {
           const value = row.values[f.name] ?? ''
           const label = f.required ? f.label : `${f.label} (optional)`
           if (f.type === 'checkbox')
             return (
-              <Checkbox
+              <div
                 key={f.name}
-                label={f.label}
-                checked={Boolean(value)}
-                onChange={(e) => set(f.name, e.target.checked)}
-              />
+                className={cn(
+                  'inline-flex h-10 w-fit items-center gap-2.5 rounded-xl border px-3.5 text-sm font-medium transition-colors',
+                  value
+                    ? 'border-success/40 bg-success/10 text-success'
+                    : 'border-line bg-background text-heading',
+                )}
+              >
+                {f.label.replace(/^is\s+/i, '').replace(/^./, (c) => c.toUpperCase())}
+                <Switch checked={Boolean(value)} onChange={(v) => set(f.name, v)} />
+              </div>
             )
           if (f.type === 'select')
             return (
@@ -324,16 +332,9 @@ function Editor({
           title="Contact details"
           description="Shown on the Contact page and footer. Fields marked (optional) can stay empty."
         />
-        <CardContent className="grid gap-5 sm:grid-cols-2">
+        <CardContent className="space-y-4">
           {shownContactFields.map((field) => (
-            <div
-              key={field.name}
-              className={
-                ['textarea', 'rich', 'image', 'file', 'checkbox'].includes(field.type)
-                  ? 'sm:col-span-2'
-                  : undefined
-              }
-            >
+            <div key={field.name}>
               <FieldControl
                 field={field}
                 register={register}
@@ -364,16 +365,25 @@ function Editor({
             />
           ) : (
             <>
-              {rows.map((row, i) => (
-                <LinkRow
-                  key={row.key}
-                  fields={linkFields}
-                  row={row}
-                  index={i}
-                  onChange={(next) => updateRow(row.key, next)}
-                  onRemove={() => removeRow(row)}
-                />
-              ))}
+              {/* Links zyada ho jayen to list ke andar scroll, page lamba nahi hota */}
+              <div
+                className={cn(
+                  'max-h-[26rem] space-y-4 overflow-y-auto pr-2',
+                  rows.length > 3 && 'pb-1',
+                  SCROLL_X,
+                )}
+              >
+                {rows.map((row, i) => (
+                  <LinkRow
+                    key={row.key}
+                    fields={linkFields}
+                    row={row}
+                    index={i}
+                    onChange={(next) => updateRow(row.key, next)}
+                    onRemove={() => removeRow(row)}
+                  />
+                ))}
+              </div>
               <Button type="button" variant="secondary" onClick={addRow}>
                 <Plus className="size-4" /> Add another link
               </Button>

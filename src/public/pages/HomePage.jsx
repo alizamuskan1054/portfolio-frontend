@@ -25,13 +25,11 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
 import { formatDate } from '@/lib/format'
 import { notify } from '@/lib/notify'
 import { paths } from '@/routes/paths'
 import { cn } from '@/lib/utils'
 import { Container } from '@/public/components/Container'
-import { IconTile } from '@/public/components/IconTile'
 import { Section } from '@/public/components/Section'
 import { SectionHeading } from '@/public/components/SectionHeading'
 import { SocialLinks } from '@/public/components/SocialLinks'
@@ -44,31 +42,6 @@ import {
 } from '@/public/hooks/usePublicData'
 import { usePublicSite } from '@/public/hooks/usePublicSite'
 
-// =====================================================================================
-// HOME PAGE (v5). Koi nayi library nahi: sirf React + CSS + Canvas.
-//
-// Is version mein:
-//   * BACKEND INTRO: hero mein naam ke neeche ab backend ka "home" page intro aata hai
-//     (page_intros -> page "home" -> intro/subtitle). Na ho to portfolio.intro / short_intro,
-//     aur wo bhi na ho to DEFAULT_INTRO (neeche constant, yahin se badlein).
-//     Isi tarah: intro.title (agar ho) naam ke neeche tagline, intro.cta_button_label button ka text.
-//   * CARDS MEIN FULL IMAGE: ab crop nahi hoti (object-contain), khali jagah usi image ke
-//     blur se bharti hai. Image na ho to gradient placeholder.
-//   * HERO IMPROVE: designation role-chips mein (& par todta hai), naam ka aakhri lafz gradient,
-//     photo par ghoomta gradient frame + glow, location glass badge, cursor-follow spotlight,
-//     shine wale buttons, CV download link. Size pehle jitna hi (compact).
-//   * TESTIMONIALS: bilkul nahi chhede (same image settings).
-//
-// ASSUMPTIONS (data fields): jo field na mile to woh hissa chup-chap hide ho jata hai.
-//   Hero:        portfolio.photo | profile_photo, portfolio.metrics ya total_publications/citations/h_index,
-//                contact.city + contact.country (location badge), portfolio.cv_url
-//   Project:     title, thumbnail|cover_image|image|gallery_images[0].image, short_description|summary|description,
-//                category, tags|technologies, is_featured, gallery_images[]
-//   Publication: title, authors, journal|venue|publisher|conference, year, citations|citation_count,
-//                url|link|pdf_url|doi, type|publication_type
-//   Blog:        same fields jo blog page normalize karta hai
-// Motion plan: ek bara moment hero load; baqi sirf halka reveal; reduced-motion par sab static.
-// =====================================================================================
 
 // Backend se home intro na aaye to yehi dikhega
 const DEFAULT_INTRO =
@@ -164,6 +137,45 @@ function HomeStyles() {
         -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
         box-shadow: 0 12px 24px -12px rgba(0,0,0,.55); }
 
+      /* ---------- Step cards (Research Interests): number badge + corner brackets ---------- */
+      .hp-steps { gap: 1.75rem 1.5rem; padding: .5rem; }
+      .hp-step { position: relative; height: 100%; }
+      .hp-step::before, .hp-step::after { content: ""; position: absolute; pointer-events: none;
+        transition: width .5s cubic-bezier(.2,.7,.2,1), height .5s cubic-bezier(.2,.7,.2,1); }
+      .hp-step::before { top: -8px; right: -8px; width: 58%; height: 46%; border-top-right-radius: 1.25rem;
+        border-top: 3px solid color-mix(in srgb, var(--h-a) 72%, var(--h-b)); border-right: 3px solid color-mix(in srgb, var(--h-a) 72%, var(--h-b)); }
+      .hp-step::after { bottom: -8px; left: -8px; width: 54%; height: 46%; border-bottom-left-radius: 1.25rem;
+        border-bottom: 3px solid color-mix(in srgb, currentColor 78%, transparent); border-left: 3px solid color-mix(in srgb, currentColor 78%, transparent); }
+      .hp-step:hover::before { width: 72%; height: 60%; }
+      .hp-step:hover::after { width: 68%; height: 60%; }
+      .hp-step-card { position: relative; z-index: 1; height: 100%; padding: 1.25rem 1.25rem 1.375rem; border-radius: 1rem;
+        background: #fff;
+        box-shadow: 0 12px 28px -18px color-mix(in srgb, var(--h-a) 55%, transparent);
+        transition: transform .3s cubic-bezier(.2,.7,.2,1), box-shadow .3s; }
+      .hp-step:hover .hp-step-card { transform: translateY(-3px); box-shadow: 0 20px 36px -20px color-mix(in srgb, var(--h-a) 70%, transparent); }
+      .hp-num { display: inline-flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; border-radius: .875rem;
+        background: var(--c-navy); color: var(--c-accent); font-family: var(--f-heading, serif); font-weight: 700; font-size: 1.0625rem; }
+      .hp-step-title { margin-top: 1rem; font-size: 1.1875rem; line-height: 1.3; }
+      .hp-step-text { margin-top: .5rem; font-size: .875rem; line-height: 1.7; text-wrap: pretty;
+        text-align: justify; hyphens: auto; text-align-last: left;
+        display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+
+      /* ---------- Article cards (Latest Articles) ---------- */
+      .hp-read-chip { position: absolute; right: .625rem; bottom: .625rem; z-index: 1; display: inline-flex; align-items: center; gap: .3125rem;
+        padding: .3125rem .625rem; border-radius: 9999px; font-size: .6875rem; font-weight: 600; color: #fff;
+        background: color-mix(in srgb, var(--c-navy) 78%, transparent); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+        opacity: 0; transform: translateY(6px); transition: opacity .3s, transform .3s; }
+      .hp-card:hover .hp-read-chip, .hp-card:focus-visible .hp-read-chip { opacity: 1; transform: none; }
+      .hp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .875rem; font-size: .75rem; }
+      .hp-meta > span { display: inline-flex; align-items: center; gap: .3125rem; }
+      .hp-foot { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: auto; padding-top: .875rem;
+        border-top: 1px solid var(--c-line); }
+      .hp-av { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 1.75rem; height: 1.75rem; overflow: hidden;
+        border-radius: 9999px; font-size: .625rem; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--h-a), var(--h-b)); }
+      .hp-go { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 9999px;
+        border: 1px solid var(--c-line); color: var(--h-a); transition: background-color .25s, color .25s, border-color .25s, transform .25s; }
+      .hp-card:hover .hp-go { background: var(--h-a); border-color: var(--h-a); color: #fff; transform: translateX(2px); }
+
       /* ---------- Grids ---------- */
       .hp-grid3 { display: grid; gap: 1.5rem; grid-template-columns: 1fr; }
       .hp-grid4 { display: grid; gap: 1.25rem; grid-template-columns: 1fr; }
@@ -257,7 +269,8 @@ function HomeStyles() {
         .home-float, .home-drift, .home-sheen, .hp-sk, .home-frame::before { animation: none; }
         .home-shine:hover::after { animation: none; }
         .hp-prog { display: none; }
-        .hp-card, .hp-pcard, .hp-btn, .hp-img-fg, .hp-more svg { transition: none !important; }
+        .hp-card, .hp-pcard, .hp-btn, .hp-img-fg, .hp-more svg, .hp-step::before, .hp-step::after, .hp-step-card, .hp-read-chip, .hp-go { transition: none !important; }
+        .hp-step:hover .hp-step-card { transform: none; }
         .hp-card:hover, .hp-pcard:hover, .hp-btn-primary:hover { transform: none; }
         .hp-card:hover .hp-img-fg { transform: none; }
       }
@@ -1076,21 +1089,6 @@ function DataSection({ enabled, query, hasContent, tone, heading, skeleton, chil
   )
 }
 
-// Cursor ke peeche chalne wali halki roshni (sirf Research cards par)
-function SpotlightWrap({ children }) {
-  const onMouseMove = (e) => {
-    if (prefersReducedMotion()) return
-    const r = e.currentTarget.getBoundingClientRect()
-    e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`)
-    e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`)
-  }
-  return (
-    <div className="group h-full" onMouseMove={onMouseMove} style={{ '--mx': '50%', '--my': '50%' }}>
-      {children}
-    </div>
-  )
-}
-
 // ---------- 2. Research Interests (max 4) ----------
 
 function ResearchInterestsSection() {
@@ -1108,46 +1106,22 @@ function ResearchInterestsSection() {
       heading={{ eyebrow: 'Focus areas', title: 'Research Interests' }}
       skeleton={<SkResearch />}
     >
-      <div className="hp-grid4">
+      <div className="hp-grid4 hp-steps">
         {items.map((item, i) => (
           <Reveal key={item.id} delay={i * 90} className="h-full">
-            <SpotlightWrap>
-              <Card hoverable className="relative h-full overflow-hidden p-6">
-                {/* cursor spotlight */}
-                <span
-                  className="pointer-events-none absolute inset-0 text-primary opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                  style={{
-                    background:
-                      'radial-gradient(260px circle at var(--mx) var(--my), color-mix(in srgb, currentColor 14%, transparent), transparent 70%)',
-                  }}
-                  aria-hidden="true"
-                />
-                <span
-                  className="absolute inset-x-0 top-0 origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100"
-                  style={{ height: 4, background: 'linear-gradient(90deg, var(--h-a), var(--h-b))' }}
-                  aria-hidden="true"
-                />
-                <span
-                  className="absolute top-4 right-5 font-serif text-4xl font-semibold text-primary/10 select-none"
-                  aria-hidden="true"
-                >
+            <article className="hp-step">
+              <div className="hp-step-card">
+                <span className="hp-num" aria-hidden="true">
                   {String(i + 1).padStart(2, '0')}
                 </span>
-
-                <div className="relative">
-                  <IconTile
-                    name={item.icon}
-                    className="mb-5 transition-transform duration-300 group-hover:-translate-y-0.5"
-                  />
-                  <h3 className="text-xl">{item.title}</h3>
-                  {item.description && (
-                    <p className="mt-3 leading-relaxed text-body" style={clampJ(4)}>
-                      {item.description}
-                    </p>
-                  )}
-                </div>
-              </Card>
-            </SpotlightWrap>
+                <h3 className="hp-step-title">{item.title}</h3>
+                {item.description && (
+                  <p className="hp-step-text text-body" title={item.description}>
+                    {item.description}
+                  </p>
+                )}
+              </div>
+            </article>
           </Reveal>
         ))}
       </div>
@@ -1684,12 +1658,36 @@ function TestimonialsSection() {
 
 // ---------- 6. Latest Blogs (3 cards) ----------
 
-function HomeBlogCard({ blog, to }) {
+// Chhota avatar: backend photo, na ho ya fail ho to initials
+function HpAvatar({ src, name }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <span className="hp-av" aria-hidden="true">
+      {src && !failed ? (
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          onError={() => setFailed(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 20%' }}
+        />
+      ) : (
+        initialsOf(name)
+      )}
+    </span>
+  )
+}
+
+function HomeBlogCard({ blog, to, owner, photo }) {
   const title = blog.title ?? ''
   const excerpt = blog.excerpt ?? blog.summary ?? blog.short_description ?? ''
   const category = asText(blog.category)
   const cover = blog.cover_image ?? blog.thumbnail ?? blog.image ?? null
   const published = blog.published_at ?? blog.created_at ?? null
+
+  // Author: article ka apna, warna portfolio ka malik; photo sirf malik ke liye
+  const author = String(asText(blog.author) || owner || '')
+  const isOwner = !blog.author || !owner || author.toLowerCase().includes(lastNameOf(owner))
 
   return (
     <Link to={to} className="hp-card group border-line bg-card hover:border-primary rounded-xl border shadow-xs">
@@ -1702,37 +1700,57 @@ function HomeBlogCard({ blog, to }) {
             </Badge>
           </span>
         )}
+        <span className="hp-read-chip" aria-hidden="true">
+          Read article
+          <ArrowRight width={12} height={12} />
+        </span>
       </div>
 
       <div style={{ display: 'flex', flex: 1, flexDirection: 'column', padding: '1rem 1.125rem 1.125rem' }}>
-        <p className="text-muted" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.25rem 0.75rem', fontSize: '0.75rem' }}>
-          {published && <time dateTime={published}>{formatDate(published)}</time>}
+        <p className="hp-meta text-muted">
+          {published && (
+            <span>
+              <CalendarDays width={12} height={12} aria-hidden="true" />
+              <time dateTime={published}>{formatDate(published)}</time>
+            </span>
+          )}
           {blog.reading_time && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span>
               <Clock width={12} height={12} aria-hidden="true" />
               {blog.reading_time} min read
             </span>
           )}
         </p>
+
         <h3 className="group-hover:text-primary transition-colors" style={{ fontSize: '1.125rem', lineHeight: 1.35, marginTop: '0.5rem', ...clamp(2) }}>
           {title}
         </h3>
         {excerpt && (
-          <p className="text-muted" style={{ fontSize: '0.8125rem', lineHeight: 1.65, marginTop: '0.5rem', ...clampJ(3) }}>
+          <p className="text-muted" style={{ fontSize: '0.8125rem', lineHeight: 1.65, marginTop: '0.5rem', marginBottom: '0.875rem', ...clampJ(3) }}>
             {excerpt}
           </p>
         )}
-        <span className="hp-more text-primary">
-          Read more
-          <ArrowRight width={14} height={14} aria-hidden="true" />
-        </span>
+
+        <div className="hp-foot">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+            {author && <HpAvatar src={isOwner ? photo : null} name={author} />}
+            {author && (
+              <span className="text-heading" style={{ fontSize: '0.75rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {author}
+              </span>
+            )}
+          </span>
+          <span className="hp-go" aria-hidden="true">
+            <ArrowRight width={14} height={14} />
+          </span>
+        </div>
       </div>
     </Link>
   )
 }
 
 function LatestBlogsSection() {
-  const { slug, vis } = usePublicSite()
+  const { slug, vis, portfolio } = usePublicSite()
   const enabled = vis.isEnabled('home', 'latest_blogs') && vis.isPageVisible('blogs')
   const query = useBlogs(slug, { enabled })
   const items = [...(query.data ?? [])]
@@ -1755,7 +1773,12 @@ function LatestBlogsSection() {
       <div className="hp-grid3">
         {items.map((blog, i) => (
           <Reveal key={blog.id} delay={i * 90} className="h-full">
-            <HomeBlogCard blog={blog} to={paths.siteBlog(slug, blog.slug ?? blog.id)} />
+            <HomeBlogCard
+              blog={blog}
+              to={paths.siteBlog(slug, blog.slug ?? blog.id)}
+              owner={portfolio?.full_name}
+              photo={portfolio?.photo ?? portfolio?.profile_photo ?? null}
+            />
           </Reveal>
         ))}
       </div>

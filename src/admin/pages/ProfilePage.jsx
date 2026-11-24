@@ -42,6 +42,57 @@ const passwordSchema = z
 // backend se confirm karne hain. Badlav sirf yahan aur api/endpoints.js mein.
 const PASSWORD_FIELDS = ['old_password', 'new_password', 'confirm_password']
 
+const GRADIENT = 'linear-gradient(90deg, var(--c-primary), var(--c-accent))'
+
+// Card ke upar patli gradient line
+function TopBar() {
+  return <span className="absolute inset-x-0 top-0 h-1" style={{ background: GRADIENT }} aria-hidden="true" />
+}
+
+// ---------- Summary strip (ek hi row, chhota) ----------
+
+function InfoChip({ icon: Icon, children }) {
+  return (
+    <span className="border-line bg-surface text-heading inline-flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm">
+      <Icon className="text-primary size-4 shrink-0" aria-hidden="true" />
+      <span className="truncate">{children}</span>
+    </span>
+  )
+}
+
+function ProfileSummary({ user }) {
+  const role = roleOf(user) === 'client' ? 'Client' : 'Administrator'
+
+  return (
+    <section
+      className="border-line bg-card relative flex flex-wrap items-center gap-x-5 gap-y-3 overflow-hidden rounded-2xl border p-4 shadow-sm sm:px-5"
+      aria-label="Account summary"
+    >
+      <TopBar />
+
+      <div className="flex min-w-0 items-center gap-4">
+        <span className="ring-primary/20 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-[var(--c-card)]">
+          <Avatar name={user?.full_name} src={user?.profile_photo} size="lg" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="truncate text-xl sm:text-2xl">{user?.full_name}</h2>
+          <p className="text-muted mt-0.5 flex items-center gap-2 text-sm">
+            <span className="bg-accent size-1.5 rounded-full" aria-hidden="true" />
+            {role}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
+        <InfoChip icon={Mail}>{user?.email ?? '-'}</InfoChip>
+        <InfoChip icon={CalendarDays}>Member since {formatDate(user?.created_at)}</InfoChip>
+      </div>
+    </section>
+  )
+}
+
+// ---------- Change password ----------
+
 function ChangePasswordCard() {
   const {
     register,
@@ -67,13 +118,19 @@ function ChangePasswordCard() {
   }
 
   return (
-    <Card>
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+    <Card className="relative flex flex-col overflow-hidden">
+      <TopBar />
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
+        className="flex flex-1 flex-col"
+      >
         <CardHeader
+          className="p-4"
           title="Change password"
           description="Use a strong password you do not use anywhere else."
         />
-        <CardContent className="space-y-5">
+        <CardContent className="flex-1 space-y-3 p-4">
           {errors.root?.server && (
             <p
               role="alert"
@@ -82,36 +139,21 @@ function ChangePasswordCard() {
               {errors.root.server.message}
             </p>
           )}
-
-          <FormField
-            label="Current password"
-            error={errors.old_password?.message}
-            required
-          >
+          <FormField label="Current" error={errors.old_password?.message}>
             <PasswordInput
               autoComplete="current-password"
               {...register('old_password')}
             />
           </FormField>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            <FormField label="New password" error={errors.new_password?.message} required>
-              <PasswordInput autoComplete="new-password" {...register('new_password')} />
-            </FormField>
-            <FormField
-              label="Confirm new password"
-              error={errors.confirm_password?.message}
-              required
-            >
-              <PasswordInput
-                autoComplete="new-password"
-                {...register('confirm_password')}
-              />
-            </FormField>
-          </div>
+          <FormField label="New" error={errors.new_password?.message}>
+            <PasswordInput autoComplete="new-password" {...register('new_password')} />
+          </FormField>
+          <FormField label="Confirm" error={errors.confirm_password?.message}>
+            <PasswordInput autoComplete="new-password" {...register('confirm_password')} />
+          </FormField>
           <PasswordStrength value={newPassword} />
         </CardContent>
-        <CardFooter>
+        <CardFooter className="p-4">
           <Button type="submit" loading={isSubmitting}>
             Update password
           </Button>
@@ -120,6 +162,8 @@ function ChangePasswordCard() {
     </Card>
   )
 }
+
+// ---------- Page ----------
 
 export function ProfilePage() {
   const { user, setUser } = useAuth()
@@ -159,40 +203,33 @@ export function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Profile" description="Manage your account details." />
+      <PageHeader
+        className="mb-4"
+        title="Profile"
+        description={
+          roleOf(user) === 'client'
+            ? 'Manage your account details.'
+            : 'Manage your admin account details.'
+        }
+      />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="h-fit">
-          <CardContent className="flex flex-col items-center p-8 text-center">
-            <Avatar name={user?.full_name} src={user?.profile_photo} size="xl" />
-            <h2 className="mt-4 text-2xl">{user?.full_name}</h2>
-            <p className="text-muted text-sm">
-              {roleOf(user) === 'client' ? 'Client' : 'Administrator'}
-            </p>
+      <div className="space-y-4">
+        <ProfileSummary user={user} />
 
-            <dl className="border-line mt-6 w-full space-y-3 border-t pt-5 text-left text-sm">
-              <div className="flex items-center gap-3">
-                <Mail className="text-muted size-4 shrink-0" />
-                <dd className="text-heading min-w-0 truncate">{user?.email}</dd>
-              </div>
-              <div className="flex items-center gap-3">
-                <CalendarDays className="text-muted size-4 shrink-0" />
-                <dd className="text-heading">
-                  Member since {formatDate(user?.created_at)}
-                </dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
-            <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <div className="grid items-stretch gap-4 lg:grid-cols-2">
+          <Card className="relative flex flex-col overflow-hidden">
+            <TopBar />
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              noValidate
+              className="flex flex-1 flex-col"
+            >
               <CardHeader
+                className="p-4"
                 title="Edit profile"
                 description="Update your name and photo."
               />
-              <CardContent className="space-y-5">
+              <CardContent className="flex-1 space-y-3 p-4">
                 {errors.root?.server && (
                   <p
                     role="alert"
@@ -202,29 +239,42 @@ export function ProfilePage() {
                   </p>
                 )}
 
-                <Controller
-                  name="profile_photo"
-                  control={control}
-                  render={({ field }) => (
-                    <ImageUploader
-                      label="Profile photo"
-                      shape="circle"
-                      value={field.value}
-                      onChange={field.onChange}
-                      error={errors.profile_photo?.message}
+                {/* photo aur fields ek row mein (chhoti screen par stack) */}
+                <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
+                  <div className="flex justify-center">
+                    <Controller
+                      name="profile_photo"
+                      control={control}
+                      render={({ field }) => (
+                        <ImageUploader
+                          label="Profile photo"
+                          shape="circle-sm"
+                          showHint={false}
+                          value={field.value}
+                          onChange={field.onChange}
+                          error={errors.profile_photo?.message}
+                        />
+                      )}
                     />
-                  )}
-                />
+                  </div>
+                  <div className="min-w-0 space-y-3">
+                    <FormField label="Full name" error={errors.full_name?.message}>
+                      <Input autoComplete="name" {...register('full_name')} />
+                    </FormField>
+                    <FormField label="Email">
+                      <Input value={user?.email ?? ''} disabled readOnly />
+                    </FormField>
+                  </div>
+                </div>
 
-                <FormField label="Full name" error={errors.full_name?.message} required>
-                  <Input autoComplete="name" {...register('full_name')} />
-                </FormField>
-
-                <FormField label="Email" hint="Email cannot be changed here.">
-                  <Input value={user?.email ?? ''} disabled readOnly />
-                </FormField>
+                {isDirty && (
+                  <p className="text-primary flex items-center gap-2 text-xs font-medium" role="status">
+                    <span className="bg-accent size-1.5 rounded-full" aria-hidden="true" />
+                    You have unsaved changes
+                  </p>
+                )}
               </CardContent>
-              <CardFooter>
+              <CardFooter className="p-4">
                 <Button
                   variant="secondary"
                   disabled={!isDirty || isSubmitting}
@@ -238,6 +288,7 @@ export function ProfilePage() {
               </CardFooter>
             </form>
           </Card>
+
           <ChangePasswordCard />
         </div>
       </div>

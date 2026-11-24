@@ -8,7 +8,6 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { paths } from '@/routes/paths'
 import { Container } from '@/public/components/Container'
 import { PageHero } from '@/public/components/PageHero'
-import { IconTile } from '@/public/components/IconTile'
 import { Reveal } from '@/public/components/Reveal'
 import { Section } from '@/public/components/Section'
 import { SectionHeading } from '@/public/components/SectionHeading'
@@ -16,10 +15,14 @@ import { useServices } from '@/public/hooks/usePublicData'
 import { usePublicSite } from '@/public/hooks/usePublicSite'
 
 // =====================================================================================
-// SERVICES PAGE (v2): hero, service cards, How I Work (4 steps), Contact CTA band.
-// Hero ab shared <PageHero> hai (rectangle, curve nahi), isliye size baqi saare pages jaisa hi rehta hai.
-// Cards/headings ke sizes aur radius bhi baqi pages ke barabar kiye gaye (rounded-xl cards, chhoti headings).
-// Yeh poore site ka akela page hai jahan call-to-action band hai.
+// SERVICES PAGE (v3): hero (animated), featured service (icon ke baghair), redesigned cards,
+// How I Work (4 steps), Contact CTA band.
+//
+// v3 changes:
+//   - Hero: aurora glow, moving grid, orbit rings + orbiting dots, floating particles, shimmer title.
+//   - Featured: visual panel se icon + rings hata diye; ab sirf glow + bara ghost number.
+//   - Cards: media header (image ya navy pattern), glass tag, overlapping icon tile, ghost number.
+//   - Colors / theme variables (--c-*) bilkul wahi hain, kuch change nahi.
 //
 // Order aur backgrounds:  navy hero -> background (featured + cards) -> blue-tint (How I Work)
 //                         -> background (CTA gradient card) -> navy footer (layout ka hissa)
@@ -28,24 +31,19 @@ import { usePublicSite } from '@/public/hooks/usePublicSite'
 //   how_i_work   -> process steps section (steps na hon to bhi hide)
 //   contact_cta  -> bottom CTA band
 //
-// Animations: index.css ke `sv-*` classes + <Reveal>. prefers-reduced-motion mein sab band.
-// Layout (grids) inline style mein hain (auto-fit) taake breakpoints ke bina bhi responsive rahen.
+// Animations: `sv-*` classes + <Reveal>. prefers-reduced-motion mein sab band.
 // =====================================================================================
 
-// Is page ki saari CSS (animations, gradients) yahin hai: alag CSS file ya index.css mein kuch add nahi karna.
 const SERVICES_CSS = `
 /* =====================================================================================
    SERVICES PAGE (sv-*): animations, gradients, glass.
    Sab colors theme variables (--c-*) se aate hain, isliye light/dark dono mein theme ke saath chalte hain.
-   @layer components mein hain taake Tailwind utilities zaroorat par override kar saken.
    ===================================================================================== */
 :root {
-  /* navy se royal blue ke beech ka gehra gradient stop */
   --sv-deep: color-mix(in srgb, var(--c-primary) 88%, var(--c-navy));
   --sv-icon-end: var(--c-navy);
 }
 .dark {
-  /* dark mode mein primary halka hota hai: cream text ke liye gradient ko gehra rakho */
   --sv-deep: color-mix(in srgb, var(--c-primary) 38%, var(--c-navy));
   --sv-icon-end: color-mix(in srgb, var(--c-primary) 45%, var(--c-on-navy));
 }
@@ -88,6 +86,30 @@ const SERVICES_CSS = `
 @keyframes sv-twinkle {
   0%, 100% { opacity: 0.25; transform: scale(0.8) rotate(0deg); }
   50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
+}
+@keyframes sv-text {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+@keyframes sv-grid {
+  to { background-position: 44px 44px, 44px 44px; }
+}
+@keyframes sv-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.55; }
+  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+}
+@keyframes sv-particle {
+  0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.2; }
+  50% { transform: translate3d(10px, -22px, 0); opacity: 0.9; }
+}
+/* elliptical orbit: x aur y alag animate hote hain (y ka phase quarter-cycle aage), depth ke liye scale + opacity */
+@keyframes sv-ox {
+  from { transform: translateX(calc(var(--rx) * -1)); }
+  to { transform: translateX(var(--rx)); }
+}
+@keyframes sv-oy {
+  from { transform: translateY(calc(var(--ry) * -1)) scale(0.82); opacity: 0.55; }
+  to { transform: translateY(var(--ry)) scale(1.08); opacity: 1; }
 }
 
 @layer components {
@@ -134,6 +156,181 @@ const SERVICES_CSS = `
     background-size: 200% 100%;
     animation: sv-sheen 6s linear infinite;
   }
+
+  /* hero title: halki si shimmer jo accent colour se guzarti hai */
+  .sv-hero-wrap :is(h1, h2) {
+    color: transparent;
+    background-image: linear-gradient(
+      100deg,
+      var(--c-on-navy) 0%,
+      var(--c-on-navy) 42%,
+      var(--c-accent) 50%,
+      var(--c-on-navy) 58%,
+      var(--c-on-navy) 100%
+    );
+    background-size: 250% 100%;
+    background-position: 120% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: sv-text 7s ease-in-out infinite;
+  }
+
+  /* slowly rotating aurora behind the hero */
+  .sv-aurora {
+    position: absolute;
+    z-index: 0;
+    left: 50%;
+    top: 50%;
+    width: 70rem;
+    height: 70rem;
+    margin: -35rem 0 0 -35rem;
+    pointer-events: none;
+    border-radius: 9999px;
+    opacity: 0.32;
+    filter: blur(80px);
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      var(--c-primary) 70deg,
+      transparent 140deg,
+      var(--c-accent) 230deg,
+      transparent 300deg
+    );
+    animation: sv-spin 46s linear infinite;
+  }
+
+  /* moving grid lines */
+  .sv-grid {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--c-on-navy) 7%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--c-on-navy) 7%, transparent) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse at 75% 50%, #000 10%, transparent 70%);
+    mask-image: radial-gradient(ellipse at 75% 50%, #000 10%, transparent 70%);
+    animation: sv-grid 14s linear infinite;
+  }
+
+  /* services orbit stage: hero ke right side par services hub ke gird ghoomti hain (xl+ screens) */
+  .sv-stage {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: min(40%, 32rem);
+    /* orbit ka size hero ki height se naapa jata hai (cqh), isliye kabhi bahar nahi nikalta */
+    container-type: size;
+    pointer-events: none;
+  }
+  .sv-stage-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(var(--rx) * 2);
+    height: calc(var(--ry) * 2);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1px dashed color-mix(in srgb, var(--c-on-navy) 14%, transparent);
+  }
+  .sv-hub {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 5rem;
+    height: 5rem;
+    margin: -2.5rem 0 0 -2.5rem;
+    border-radius: 9999px;
+    background: conic-gradient(from 0deg, var(--c-primary), var(--c-accent), var(--c-primary));
+    box-shadow: 0 0 60px 8px color-mix(in srgb, var(--c-primary) 50%, transparent);
+    animation: sv-spin 9s linear infinite;
+  }
+  .sv-hub::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--c-primary) 55%, var(--c-navy)), var(--c-navy) 72%);
+  }
+  .sv-hub-halo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 11rem;
+    height: 11rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--c-primary) 45%, transparent), transparent 68%);
+    animation: sv-pulse 5s ease-in-out infinite;
+  }
+  .sv-orb-x {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    animation: sv-ox var(--d) cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;
+    animation-delay: calc(-1 * var(--ph));
+  }
+  .sv-orb-y {
+    position: absolute;
+    left: 0;
+    top: 0;
+    animation: sv-oy var(--d) cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;
+    animation-delay: calc(-1 * var(--ph) - var(--d) / 2);
+  }
+  .sv-orb-x.is-rev,
+  .sv-orb-x.is-rev .sv-orb-y {
+    animation-direction: alternate-reverse;
+  }
+  .sv-orb-pill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 13rem;
+    white-space: nowrap;
+    border-radius: 9999px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--c-on-navy);
+    border: 1px solid color-mix(in srgb, var(--tone) 50%, transparent);
+    background: color-mix(in srgb, var(--tone) 16%, color-mix(in srgb, var(--c-navy) 72%, transparent));
+    box-shadow: 0 0 22px -6px color-mix(in srgb, var(--tone) 70%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .sv-orb-pill::before {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
+    background: var(--tone);
+    box-shadow: 0 0 10px 2px color-mix(in srgb, var(--tone) 75%, transparent);
+  }
+  .sv-orb-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sv-particle {
+    position: absolute;
+    z-index: 1;
+    width: 4px;
+    height: 4px;
+    border-radius: 9999px;
+    pointer-events: none;
+    background: var(--c-on-navy);
+    animation: sv-particle var(--sv-dur, 8s) ease-in-out infinite;
+    animation-delay: var(--sv-delay, 0s);
+  }
+
   .sv-chips {
     display: flex;
     flex-wrap: wrap;
@@ -232,7 +429,6 @@ const SERVICES_CSS = `
     isolation: isolate;
     overflow: hidden;
     color: var(--c-on-navy);
-    /* hero jaisa wahi navy (PageHero ka bg-navy), glow upar blobs se aata hai */
     background: var(--c-navy);
   }
   .sv-ring {
@@ -255,7 +451,25 @@ const SERVICES_CSS = `
     border: 1px solid color-mix(in srgb, var(--c-primary) 22%, transparent);
   }
 
-  /* ---- service cards: spotlight + lift ---- */
+  /* bara outlined number (featured panel + cards) */
+  .sv-num-ghost {
+    font-family: var(--f-heading);
+    font-weight: 600;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--c-primary) 28%, transparent);
+    user-select: none;
+  }
+  .sv-num-ghost-light {
+    font-family: var(--f-heading);
+    font-weight: 600;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--c-on-navy) 32%, transparent);
+    user-select: none;
+  }
+
+  /* ---- service cards ---- */
   .sv-card {
     position: relative;
     display: flex;
@@ -275,6 +489,7 @@ const SERVICES_CSS = `
     content: '';
     position: absolute;
     inset: 0;
+    z-index: 1;
     opacity: 0;
     pointer-events: none;
     background: radial-gradient(
@@ -287,9 +502,10 @@ const SERVICES_CSS = `
   .sv-card::after {
     content: '';
     position: absolute;
-    top: 0;
+    bottom: 0;
     left: 0;
     right: 0;
+    z-index: 2;
     height: 3px;
     transform: scaleX(0);
     transform-origin: left;
@@ -313,6 +529,78 @@ const SERVICES_CSS = `
     transform: scaleX(1);
   }
 
+  /* card media header (image ya navy pattern) */
+  .sv-card-media {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    aspect-ratio: 16 / 8;
+    color: var(--c-on-navy);
+    background: var(--c-navy);
+  }
+  .sv-card-media > img {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .sv-card:hover .sv-card-media > img {
+    transform: scale(1.07);
+  }
+  .sv-card-media::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 35%, color-mix(in srgb, var(--c-navy) 70%, transparent));
+  }
+  .sv-card-media .sv-blob {
+    animation-duration: 28s;
+  }
+  .sv-card-tag {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 9999px;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--c-on-navy);
+  }
+  .sv-card-ghost {
+    position: absolute;
+    right: 1rem;
+    bottom: -0.4rem;
+    z-index: 1;
+    font-size: 4.75rem;
+    transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .sv-card:hover .sv-card-ghost {
+    transform: translateY(-6px) scale(1.04);
+  }
+  .sv-card-body {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: 1.25rem;
+  }
+  @media (min-width: 640px) {
+    .sv-card-body {
+      padding: 1.5rem;
+    }
+  }
+
   /* gradient icon tile (IconTile variant="gradient") */
   .sv-icon-gradient {
     color: var(--c-on-primary);
@@ -329,15 +617,6 @@ const SERVICES_CSS = `
     background: color-mix(in srgb, var(--c-on-navy) 12%, transparent);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
-  }
-
-  .sv-num-ghost {
-    font-family: var(--f-heading);
-    font-weight: 600;
-    line-height: 1;
-    color: transparent;
-    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--c-primary) 28%, transparent);
-    user-select: none;
   }
 
   /* ---- process steps ---- */
@@ -391,7 +670,6 @@ const SERVICES_CSS = `
     overflow: hidden;
     border-radius: 1rem;
     color: var(--c-on-navy);
-    /* hero jaisa wahi navy (PageHero ka bg-navy), glow upar blobs se aata hai */
     background: var(--c-navy);
     box-shadow: 0 40px 80px -36px color-mix(in srgb, var(--c-navy) 85%, transparent);
   }
@@ -451,14 +729,36 @@ const SERVICES_CSS = `
   .sv-ring,
   .sv-cta,
   .sv-twinkle,
+  .sv-aurora,
+  .sv-grid,
+  .sv-hub,
+  .sv-hub-halo,
+  .sv-particle,
+  .sv-hero-wrap :is(h1, h2),
   .sv-dot-live::after {
     animation: none !important;
+  }
+  .sv-hero-wrap :is(h1, h2) {
+    background-position: 0 0 !important;
+  }
+  /* orbit ruk jaye to pills ellipse par barabar faslay se tike rahen */
+  .sv-orb-x,
+  .sv-orb-y {
+    animation: none !important;
+  }
+  .sv-orb-x {
+    transform: translateX(calc(var(--rx) * cos(var(--a))));
+  }
+  .sv-orb-y {
+    transform: translateY(calc(var(--ry) * sin(var(--a))));
   }
   .sv-step-bar {
     transform: scaleX(1) !important;
     animation: none !important;
   }
   .sv-card,
+  .sv-card-media > img,
+  .sv-card-ghost,
   .sv-step,
   .sv-btn-light,
   .sv-btn-glass {
@@ -492,6 +792,20 @@ const chipClass = 'border-on-navy/20 bg-on-navy/10 text-on-navy/85 inline-flex i
 const chipStyle = { gap: '0.375rem', padding: '0.375rem 0.75rem', fontSize: '0.75rem' }
 const chipLink = `${chipClass} transition-colors hover:border-accent hover:text-accent`
 
+// Hero ke floating particles: [left, top, delay(s), duration(s)]
+const PARTICLES = [
+  ['8%', '22%', 0, 9],
+  ['22%', '70%', 1.4, 11],
+  ['41%', '18%', 2.6, 8],
+  ['58%', '78%', 0.8, 10],
+  ['72%', '14%', 3.2, 12],
+  ['90%', '66%', 2, 9],
+]
+
+// Har service ka apna orbit; itne orbits se zyada ho to services orbits share karti hain
+const MAX_ORBITS = 5
+const TONES = ['var(--c-primary)', 'var(--c-accent)', 'var(--c-on-navy)']
+
 function Hero({ services, stepCount, showProcess }) {
   const { slug, pageIntros } = usePublicSite()
   const intro = pageIntros?.services
@@ -505,9 +819,19 @@ function Hero({ services, stepCount, showProcess }) {
 
   const links = 1 + (showProcess ? 1 : 0)
 
+  // jitni services utne orbits (max 5). r = radius (hero height ka %), d = speed (zyada = slow)
+  const orbiting = services.slice(0, 12)
+  const ringCount = Math.min(orbiting.length, MAX_ORBITS)
+  const rings = Array.from({ length: ringCount }, (_, r) => ({
+    r: ringCount === 1 ? 31 : 20 + (22 * r) / (ringCount - 1),
+    d: 8 + r * 3,
+    items: [],
+  }))
+  orbiting.forEach((s, i) => rings[i % ringCount].items.push(s))
+
   return (
     <div className="sv-hero-wrap">
-      <PageHero eyebrow="Services" title={title} subtitle={subtitle}>
+      <PageHero eyebrow="Work with me" title={title} subtitle={subtitle}>
         <ul className="sv-chips">
           {pills.map((text, i) => (
             <li key={text} className={`sv-chip-in ${chipClass}`} style={{ ...chipStyle, '--i': i }}>
@@ -533,6 +857,8 @@ function Hero({ services, stepCount, showProcess }) {
       </PageHero>
 
       {/* decoration: overlay, clicks nahi rokta */}
+      <span aria-hidden="true" className="sv-aurora" />
+      <span aria-hidden="true" className="sv-grid" />
       <span
         aria-hidden="true"
         className="sv-blob bg-primary"
@@ -544,6 +870,50 @@ function Hero({ services, stepCount, showProcess }) {
         style={{ bottom: '-9rem', left: '-3rem', width: '18rem', height: '18rem', opacity: 0.26, animationDuration: '30s' }}
       />
       <span aria-hidden="true" className="sv-dots" />
+
+      {/* services orbit: hub ke gird ghoomti hain (sirf xl+ screens par) */}
+      <div aria-hidden="true" className="sv-stage hidden min-[1400px]:block">
+        {rings.map((o, r) => (
+          <span key={r} className="sv-stage-ring" style={{ '--rx': `${o.r}cqh`, '--ry': `${o.r}cqh` }} />
+        ))}
+        <span className="sv-hub-halo" />
+        <span className="sv-hub" />
+        {rings.flatMap((o, r) =>
+          o.items.map((s, k) => {
+            const frac = (k / o.items.length + r * 0.17) % 1
+            return (
+              <span
+                key={s.id ?? `${r}-${k}`}
+                className={`sv-orb-x${r % 2 === 1 ? ' is-rev' : ''}`}
+                style={{
+                  '--rx': `${o.r}cqh`,
+                  '--ry': `${o.r}cqh`,
+                  '--d': `${o.d}s`,
+                  '--ph': `${(frac * 2 * o.d).toFixed(2)}s`,
+                  '--a': `${Math.round(frac * 360)}deg`,
+                  '--tone': TONES[(r + k) % TONES.length],
+                }}
+              >
+                <span className="sv-orb-y">
+                  <span className="sv-orb-pill">
+                    <span className="sv-orb-text">{s.title}</span>
+                  </span>
+                </span>
+              </span>
+            )
+          }),
+        )}
+      </div>
+
+      {PARTICLES.map(([left, top, delay, dur], i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          className="sv-particle"
+          style={{ left, top, '--sv-delay': `${delay}s`, '--sv-dur': `${dur}s` }}
+        />
+      ))}
+
       <span aria-hidden="true" className="sv-sheen" />
     </div>
   )
@@ -558,7 +928,7 @@ function FeaturedService({ service, slug }) {
         className="sv-gborder-inner"
         style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 22rem), 1fr))' }}
       >
-        {/* Visual panel */}
+        {/* Visual panel (icon nahi, sirf glow + bara number) */}
         <div className="sv-visual flex items-center justify-center" style={{ minHeight: '15rem' }}>
           {service.image && (
             <img
@@ -580,11 +950,15 @@ function FeaturedService({ service, slug }) {
           />
           <span aria-hidden="true" className="sv-dots" />
 
-          <div className="relative flex items-center justify-center" style={{ width: '11rem', height: '11rem' }}>
-            <span className="sv-ring absolute inset-0" aria-hidden="true" />
-            <span className="sv-ring absolute" style={{ inset: '1.5rem', animationDirection: 'reverse', animationDuration: '22s' }} aria-hidden="true" />
-            <IconTile name={service.icon} variant="glass" size="xl" className="sv-float relative size-20 rounded-2xl" />
-          </div>
+          {!service.image && (
+            <span
+              aria-hidden="true"
+              className="sv-num-ghost-light relative"
+              style={{ fontSize: 'clamp(6rem, 14vw, 9rem)' }}
+            >
+              01
+            </span>
+          )}
 
           <span className="sv-glass absolute bottom-4 left-4 rounded-full px-3 py-1 text-xs font-semibold tracking-widest text-on-navy uppercase">
             Primary service
@@ -637,22 +1011,36 @@ function ServiceTile({ service, index, slug }) {
         className="sv-card group"
         aria-label={`${service.title}: enquire about this service`}
       >
-        {service.image && (
-          <div className="relative aspect-video overflow-hidden bg-primary-soft">
-            <img
-              src={service.image}
-              alt=""
-              loading="lazy"
-              className="size-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
-            <span className="absolute inset-0 bg-linear-to-t from-navy/50 to-transparent" aria-hidden="true" />
-          </div>
-        )}
+        {/* media header: image ya navy pattern */}
+        <div className="sv-card-media">
+          {service.image ? (
+            <img src={service.image} alt="" loading="lazy" />
+          ) : (
+            <>
+              <span
+                aria-hidden="true"
+                className="sv-blob bg-primary"
+                style={{ top: '-4rem', right: '-3rem', width: '11rem', height: '11rem', opacity: 0.4 }}
+              />
+              <span
+                aria-hidden="true"
+                className="sv-blob bg-accent"
+                style={{ bottom: '-5rem', left: '-2rem', width: '10rem', height: '10rem', opacity: 0.26 }}
+              />
+              <span aria-hidden="true" className="sv-dots" />
+              <span aria-hidden="true" className="sv-card-ghost sv-num-ghost-light">
+                {pad(index + 1)}
+              </span>
+            </>
+          )}
+          <span className="sv-card-tag sv-glass">
+            <span className="sv-dot-live" aria-hidden="true" />
+            Service {pad(index + 1)}
+          </span>
+        </div>
 
-        <div className="relative flex flex-1 flex-col p-5 sm:p-6">
-          {!service.image && <IconTile name={service.icon} variant="gradient" size="lg" className="mb-5" />}
-          <p className="text-xs font-semibold tracking-widest text-primary uppercase">Service {pad(index + 1)}</p>
-          <h3 className="mt-2 text-lg sm:text-xl">{service.title}</h3>
+        <div className="sv-card-body">
+          <h3 className="text-lg sm:text-xl">{service.title}</h3>
           {service.short_description && (
             <p className="mt-3 line-clamp-[6] flex-1 text-justify [hyphens:auto] [text-align-last:left] leading-relaxed text-body" title={service.short_description}>
               {service.short_description}

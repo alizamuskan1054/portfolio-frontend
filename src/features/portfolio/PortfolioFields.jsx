@@ -3,7 +3,7 @@
 
 import { Controller, useWatch } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
+import { CheckCircle2, LayoutTemplate, Loader2, XCircle } from 'lucide-react'
 import { portfoliosResource, templatesResource } from '@/api/endpoints'
 import { FileUploader } from '@/components/shared/FileUploader'
 import { FormField } from '@/components/shared/FormField'
@@ -22,8 +22,8 @@ import { slugify, toList } from './portfolioForm'
 // hideLabel: card ka title pehle se "Template" ho to dobara "Template *" na dikhao
 export function TemplatePicker({ form, hideLabel = false }) {
   const templates = useQuery({
-    queryKey: templatesResource.keys.list({}),
-    queryFn: () => templatesResource.list(),
+    queryKey: templatesResource.keys.list({ page_size: 100 }),
+    queryFn: () => templatesResource.list({ page_size: 100 }),
   })
   const template = useWatch({ control: form.control, name: 'template' })
   const { errors } = form.formState
@@ -31,8 +31,9 @@ export function TemplatePicker({ form, hideLabel = false }) {
   return (
     <div>
       {!hideLabel && (
-        <p className="text-heading mb-2 text-sm font-medium">
-          Template <span className="text-danger">*</span>
+        <p className="text-heading mb-3 flex items-center gap-2 text-sm font-medium">
+          <LayoutTemplate aria-hidden="true" className="size-4 shrink-0" />
+          <span>Template</span>
         </p>
       )}
       {templates.isLoading ? (
@@ -62,14 +63,14 @@ export function TemplatePicker({ form, hideLabel = false }) {
                   className={cn(
                     'flex flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors',
                     selected
-                      ? 'border-primary bg-primary-soft ring-primary/30 ring-2'
-                      : 'border-line bg-card hover:border-primary',
+                      ? 'border-success bg-success/10 ring-success/30 ring-2'
+                      : 'border-line bg-card hover:border-success',
                   )}
                 >
                   <span className="flex w-full items-center justify-between gap-2">
                     <span className="text-heading font-medium">{t.name}</span>
                     {selected && (
-                      <CheckCircle2 className="text-primary size-5 shrink-0" />
+                      <CheckCircle2 className="text-success size-5 shrink-0" />
                     )}
                   </span>
                   <span className="text-muted line-clamp-2 text-sm">
@@ -176,7 +177,7 @@ export function BasicFields({ form, portfolio }) {
           description="This appears in the hero of the site."
         />
         <CardContent className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-4">
             <FormField label="Full name" error={errors.full_name?.message} required>
               <Input
                 autoComplete="off"
@@ -271,17 +272,21 @@ export function BasicFields({ form, portfolio }) {
           description="Shown as counters on the home page."
         />
         <CardContent className="grid gap-4 sm:grid-cols-3">
-          <FormField label="Publications" error={errors.total_publications?.message}>
+          <FormField
+            layout="stack"
+            label="Publications"
+            error={errors.total_publications?.message}
+          >
             <Input
               inputMode="numeric"
               placeholder="0"
               {...register('total_publications')}
             />
           </FormField>
-          <FormField label="Citations" error={errors.citations?.message}>
+          <FormField layout="stack" label="Citations" error={errors.citations?.message}>
             <Input inputMode="numeric" placeholder="0" {...register('citations')} />
           </FormField>
-          <FormField label="h-index" error={errors.h_index?.message}>
+          <FormField layout="stack" label="h-index" error={errors.h_index?.message}>
             <Input inputMode="numeric" placeholder="0" {...register('h_index')} />
           </FormField>
         </CardContent>

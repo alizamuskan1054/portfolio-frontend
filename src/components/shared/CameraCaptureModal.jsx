@@ -14,10 +14,8 @@ export function CameraCaptureModal({ open, onClose, onCapture }) {
   useEffect(() => {
     if (!open) return undefined
     let cancelled = false
-    /* eslint-disable react-hooks/set-state-in-effect -- modal khulte hi camera ki state reset hoti hai */
     setError(null)
     setReady(false)
-    /* eslint-enable react-hooks/set-state-in-effect */
 
     const start = async () => {
       try {
@@ -84,7 +82,7 @@ export function CameraCaptureModal({ open, onClose, onCapture }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Take a photo" size="md">
+    <Modal open={open} onClose={onClose} title="Take a photo" size="sm">
       <div className="space-y-4 p-6">
         {error ? (
           <p

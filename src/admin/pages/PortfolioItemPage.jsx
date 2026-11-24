@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { cloneElement, useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Trash2 } from 'lucide-react'
+import { CalendarDays, Trash2 } from 'lucide-react'
+import { inferFieldIcon, prettyLabel } from '@/components/shared/field-icons'
 import { applyServerErrors } from '@/api/errors'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { FormField } from '@/components/shared/FormField'
@@ -12,13 +13,14 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
-import { Checkbox } from '@/components/ui/Checkbox'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Switch } from '@/components/ui/Switch'
 import { Textarea } from '@/components/ui/Textarea'
 import { toFormData } from '@/lib/formData'
 import { notify } from '@/lib/notify'
+import { cn } from '@/lib/utils'
 import { usePortfolioScope } from '@/features/portfolio/scope'
 import {
   ACADEMIC_TABS,
@@ -35,16 +37,157 @@ import {
   useSectionSchema,
 } from '../sections'
 
-const FULL = ['textarea', 'rich', 'image', 'file', 'checkbox']
+// Lambi likhai wale fields hi textarea bante hain; Degree, Institution jaise short fields
+// (backend mein TextField hon tab bhi) ek line ke input rehte hain.
+const LONG_TEXT =
+  /description|biograph|\bbio\b|summary|abstract|details|content|about|message|notes?|achievement|responsib|overview|objective|body/i
+const YEAR_FIELD = /year/i
+const YEARS = Array.from({ length: new Date().getFullYear() + 6 - 1899 }, (_, i) => {
+  return new Date().getFullYear() + 6 - i
+})
+
+// Ek row mein aane wale fields (naam se). Jo field maujood na ho to row normal ban jati hai.
+const GROUPS = [
+  ['published_at', 'reading_time'],
+  ['status', 'category'],
+  ['doi', 'external_url'],
+]
+
+// Start/End jodi (start_year + end_year...) aur GROUPS ek hi row mein
+function groupFields(fields) {
+  const used = new Set()
+  const rows = []
+  for (const f of fields) {
+    if (used.has(f.name)) continue
+    const m = /^start_(.+)$/.exec(f.name)
+    const end = m && fields.find((x) => x.name === `end_${m[1]}`)
+    if (end) {
+      used.add(end.name)
+      rows.push({ pair: [f, end] })
+      continue
+    }
+    const group = GROUPS.find(
+      (g) => g.includes(f.name) && g.every((n) => fields.some((x) => x.name === n)),
+    )
+    if (group) {
+      const members = group.map((n) => fields.find((x) => x.name === n))
+      members.forEach((x) => used.add(x.name))
+      rows.push({ group: members })
+    } else rows.push({ field: f })
+  }
+  // Tarteeb: year/date + toggles, phir status+category, phir title, baqi pehle jaisa
+  const rank = (row) => {
+    const names = row.group
+      ? row.group.map((x) => x.name)
+      : row.field
+        ? [row.field.name]
+        : []
+    if (names.some((n) => n === 'year' || n === 'published_at')) return 0
+    if (names.some((n) => n === 'status' || n === 'category')) return 1
+    if (names.includes('title')) return 2
+    return 3
+  }
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => rank(a.row) - rank(b.row) || a.index - b.index)
+    .map(({ row }) => row)
+}
+
+// FormField child ko id/invalid props deta hai; yeh wrapper unhein DOM tak nahi bhejta
+function PairBody({ children }) {
+  return <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+}
+
+// Bina label ke control + hint/error (row ke andar inline fields ke liye)
+function BareWrap({ hint, error, children }) {
+  return (
+    <div className="min-w-0 space-y-1">
+      {children}
+      {error ? (
+        <p role="alert" className="text-danger text-xs">
+          {error}
+        </p>
+      ) : (
+        hint && <p className="text-muted text-xs">{hint}</p>
+      )}
+    </div>
+  )
+}
+
+// Input ke saath usi row mein (jaise Year ke saath Featured / Visible)
+function InlineWith({ extra, children, ...inputProps }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="min-w-44 flex-1">{cloneElement(children, inputProps)}</div>
+      {extra}
+    </div>
+  )
+}
+
+// Ek row mein kai fields: pehle ka label left, baqi ka label apne input se pehle
+function GroupRow({ fields, extra, register, control, errors, portfolioId, kind }) {
+  const [first, ...others] = fields
+  const common = { register, control, portfolioId, kind, bare: true }
+  return (
+    <FormField label={first.label} required={first.required}>
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="min-w-44 flex-1">
+          <FieldControl field={first} error={errors[first.name]?.message} {...common} />
+        </div>
+        {others.map((f) => {
+          const Icon = inferFieldIcon(f.label)
+          return (
+            <div key={f.name} className="flex min-w-56 flex-1 items-start gap-3">
+              <span className="text-heading flex h-10 shrink-0 items-center gap-2 text-sm font-medium">
+                <Icon aria-hidden="true" className="size-4" />
+                {prettyLabel(f.label)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <FieldControl field={f} error={errors[f.name]?.message} {...common} />
+              </div>
+            </div>
+          )
+        })}
+        {extra}
+      </div>
+    </FormField>
+  )
+}
+
+// Chhota on/off button (Featured, Visible, Current...). On hone par hara.
+function ToggleChip({ field, control }) {
+  const title = field.label.replace(/^is\s+/i, '').replace(/^./, (c) => c.toUpperCase())
+  return (
+    <Controller
+      name={field.name}
+      control={control}
+      rules={field.validate ? { validate: field.validate } : undefined}
+      render={({ field: f }) => (
+        <div
+          title={field.hint || undefined}
+          className={cn(
+            'inline-flex h-10 items-center gap-2.5 rounded-xl border px-3.5 text-sm font-medium transition-colors',
+            f.value
+              ? 'border-success/40 bg-success/10 text-success'
+              : 'border-line bg-background text-heading',
+          )}
+        >
+          {title}
+          <Switch checked={Boolean(f.value)} onChange={f.onChange} />
+        </div>
+      )}
+    />
+  )
+}
 
 // Related field (jaise Category): dropdown / checkboxes, options isi portfolio ki related entries se
-function RelationControl({ field, register, control, error, portfolioId, kind }) {
+function RelationControl({ field, register, control, error, portfolioId, kind, bare }) {
   const { name, label, required, relation } = field
   const resource = resources[relation.path]
   const scope = usePortfolioScope()
   const query = useQuery({
-    queryKey: resource.keys.list({ portfolio: portfolioId }),
-    queryFn: () => resource.list({ portfolio: portfolioId }),
+    queryKey: resource.keys.list({ portfolio: portfolioId, page_size: 100 }),
+    queryFn: () => resource.list({ portfolio: portfolioId, page_size: 100 }),
   })
   const kindField = findKindField(
     useSectionSchema('categories', { enabled: relation.path === 'categories' }).fields,
@@ -66,9 +209,13 @@ function RelationControl({ field, register, control, error, portfolioId, kind })
       </>
     ) : undefined
 
+  // bare: label ke baghair (jab field kisi row ke andar inline ho)
+  const Wrap = bare ? BareWrap : FormField
+  const wrapProps = bare ? { hint, error } : { label, required, hint, error }
+
   if (relation.multiple) {
     return (
-      <FormField label={label} required={required} hint={hint} error={error}>
+      <Wrap {...wrapProps}>
         <Controller
           name={name}
           control={control}
@@ -100,12 +247,12 @@ function RelationControl({ field, register, control, error, portfolioId, kind })
             </div>
           )}
         />
-      </FormField>
+      </Wrap>
     )
   }
 
   return (
-    <FormField label={label} required={required} hint={hint} error={error}>
+    <Wrap {...wrapProps}>
       <Select
         placeholder={query.isLoading ? 'Loading...' : `Select ${label.toLowerCase()}`}
         {...register(name, { required: required ? `${label} is required` : false })}
@@ -116,12 +263,22 @@ function RelationControl({ field, register, control, error, portfolioId, kind })
           </option>
         ))}
       </Select>
-    </FormField>
+    </Wrap>
   )
 }
 
 // === Ek field ===============================================================
-export function FieldControl({ field, register, control, error, portfolioId, kind }) {
+export function FieldControl({
+  field,
+  register,
+  control,
+  error,
+  portfolioId,
+  kind,
+  bare = false,
+  miniLabel,
+  extra,
+}) {
   const { name, label, type, required, hint, options = [], maxLength } = field
   const rules = {
     required: required ? `${label} is required` : false,
@@ -141,13 +298,14 @@ export function FieldControl({ field, register, control, error, portfolioId, kin
         error={error}
         portfolioId={portfolioId}
         kind={kind}
+        bare={bare}
       />
     )
 
   if (type === 'checkbox')
     return (
       <div className="space-y-1.5">
-        <Checkbox label={label} description={hint} {...register(name, rules)} />
+        <ToggleChip field={field} control={control} />
         {error && (
           <p role="alert" className="text-danger text-xs">
             {error}
@@ -220,7 +378,19 @@ export function FieldControl({ field, register, control, error, portfolioId, kin
   }
 
   let input
-  if (type === 'textarea') input = <Textarea rows={4} {...register(name, rules)} />
+  if (type === 'textarea' && LONG_TEXT.test(`${label} ${name}`))
+    input = <Textarea rows={4} {...register(name, rules)} />
+  else if (type === 'textarea') input = <Input type="text" {...register(name, rules)} />
+  else if (type === 'number' && YEAR_FIELD.test(`${label} ${name}`))
+    input = (
+      <Select placeholder={`Select ${label.toLowerCase()}`} {...register(name, rules)}>
+        {YEARS.map((y) => (
+          <option key={y} value={y}>
+            {y}
+          </option>
+        ))}
+      </Select>
+    )
   else if (type === 'select')
     input = (
       <Select placeholder="Select..." {...register(name, rules)}>
@@ -233,9 +403,26 @@ export function FieldControl({ field, register, control, error, portfolioId, kin
     )
   else input = <Input type={type} {...register(name, rules)} />
 
+  if (bare)
+    return (
+      <div className="min-w-0 space-y-1">
+        {miniLabel && (
+          <span className="text-muted block text-xs font-medium">{miniLabel}</span>
+        )}
+        {input}
+        {error ? (
+          <p role="alert" className="text-danger text-xs">
+            {error}
+          </p>
+        ) : (
+          hint && <p className="text-muted text-xs">{hint}</p>
+        )}
+      </div>
+    )
+
   return (
     <FormField label={label} required={required} hint={hint} error={error}>
-      {input}
+      {extra ? <InlineWith extra={extra}>{input}</InlineWith> : input}
     </FormField>
   )
 }
@@ -265,68 +452,61 @@ function ProjectGallery({ projectId }) {
   })
 
   return (
-    <Card>
-      <CardContent className="space-y-3">
-        <p className="text-heading font-medium">Gallery</p>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-          {toList(query.data).map((img) => (
-            <div
-              key={img.id}
-              className="bg-surface relative aspect-square overflow-hidden rounded-lg"
+    <div className="space-y-3">
+      <p className="text-heading font-medium">Gallery</p>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+        {toList(query.data).map((img) => (
+          <div
+            key={img.id}
+            className="bg-surface relative aspect-square overflow-hidden rounded-lg"
+          >
+            <img src={img.image} alt="" className="size-full object-cover" />
+            <button
+              type="button"
+              aria-label="Remove image"
+              onClick={() => remove.mutate(img.id)}
+              className="bg-danger text-on-danger absolute top-1 right-1 flex size-7 items-center justify-center rounded-full shadow"
             >
-              <img src={img.image} alt="" className="size-full object-cover" />
-              <button
-                type="button"
-                aria-label="Remove image"
-                onClick={() => remove.mutate(img.id)}
-                className="bg-navy/70 text-on-navy absolute top-1 right-1 flex size-7 items-center justify-center rounded-full"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-        <ImageDropzone
-          onFiles={(files) => upload.mutate(files)}
-          busy={upload.isPending}
-        />
-      </CardContent>
-    </Card>
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <ImageDropzone onFiles={(files) => upload.mutate(files)} busy={upload.isPending} />
+    </div>
   )
 }
 
 // Naye project par: images pehle yahin chuno, project save hote hi upload ho jati hain
 function PendingGallery({ items, onAdd, onRemove }) {
   return (
-    <Card>
-      <CardContent className="space-y-3">
-        <p className="text-heading font-medium">Gallery</p>
-        {items.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-            {items.map((it) => (
-              <div
-                key={it.url}
-                className="bg-surface relative aspect-square overflow-hidden rounded-lg"
+    <div className="space-y-3">
+      <p className="text-heading font-medium">Gallery</p>
+      {items.length > 0 && (
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+          {items.map((it) => (
+            <div
+              key={it.url}
+              className="bg-surface relative aspect-square overflow-hidden rounded-lg"
+            >
+              <img src={it.url} alt="" className="size-full object-cover" />
+              <button
+                type="button"
+                aria-label="Remove image"
+                onClick={() => onRemove(it)}
+                className="bg-danger text-on-danger absolute top-1 right-1 flex size-7 items-center justify-center rounded-full shadow"
               >
-                <img src={it.url} alt="" className="size-full object-cover" />
-                <button
-                  type="button"
-                  aria-label="Remove image"
-                  onClick={() => onRemove(it)}
-                  className="bg-navy/70 text-on-navy absolute top-1 right-1 flex size-7 items-center justify-center rounded-full"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <ImageDropzone onFiles={onAdd} />
-        <p className="text-muted text-xs">
-          These images are uploaded when you click Add project.
-        </p>
-      </CardContent>
-    </Card>
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <ImageDropzone onFiles={onAdd} />
+      <p className="text-muted text-xs">
+        These images are uploaded when you click Add project.
+      </p>
+    </div>
   )
 }
 
@@ -365,8 +545,8 @@ function ItemForm({ section, portfolioId, item, fields: allFields, backTo, kind 
   const kindField = isCategory && kind ? findKindField(allFields) : null
   const isServices = section === 'services'
   const existing = useQuery({
-    queryKey: resource.keys.list({ portfolio: portfolioId }),
-    queryFn: () => resource.list({ portfolio: portfolioId }),
+    queryKey: resource.keys.list({ portfolio: portfolioId, page_size: 100 }),
+    queryFn: () => resource.list({ portfolio: portfolioId, page_size: 100 }),
     enabled: isCategory || isServices,
   })
   const nameField = isCategory
@@ -477,6 +657,43 @@ function ItemForm({ section, portfolioId, item, fields: allFields, backTo, kind 
     }
   })
 
+  // Layout: toggles chhote chips ban kar pehle simple field ki row mein, image/file fields
+  // gallery ke saath ek hi card mein side by side.
+  const toggleFields = fields.filter((f) => f.type === 'checkbox')
+  const mediaFields = fields.filter((f) => f.type === 'image' || f.type === 'file')
+  const formFields = fields.filter(
+    (f) => !toggleFields.includes(f) && !mediaFields.includes(f),
+  )
+  const rows = groupFields(formFields)
+  const SIMPLE = ['text', 'number', 'select', 'date', 'email', 'url', 'tel']
+  // Toggles (Featured / Visible) pehli row mein: year / published_at wali, warna pehla simple field
+  const hostRow =
+    toggleFields.length > 0
+      ? rows.find((row) => row.group || row.field?.name === 'year') ||
+        rows.find(
+          (row) =>
+            row.field &&
+            SIMPLE.includes(row.field.type) &&
+            !LONG_TEXT.test(`${row.field.label} ${row.field.name}`),
+        )
+      : undefined
+  const toggleChips =
+    toggleFields.length > 0 ? (
+      <>
+        {toggleFields.map((f) => (
+          <ToggleChip key={f.name} field={f} control={control} />
+        ))}
+        {toggleFields.map(
+          (f) =>
+            errors[f.name]?.message && (
+              <p key={f.name} role="alert" className="text-danger basis-full text-xs">
+                {errors[f.name].message}
+              </p>
+            ),
+        )}
+      </>
+    ) : null
+
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
       {errors.root?.server && (
@@ -486,31 +703,97 @@ function ItemForm({ section, portfolioId, item, fields: allFields, backTo, kind 
       )}
 
       <Card>
-        <CardContent className="grid gap-5 sm:grid-cols-2">
-          {fields.map((field) => (
-            <div
-              key={field.name}
-              className={FULL.includes(field.type) ? 'sm:col-span-2' : undefined}
-            >
-              <FieldControl
-                field={field}
+        <CardContent className="space-y-4">
+          {rows.map((row) =>
+            row.pair ? (
+              <FormField
+                key={row.pair[0].name}
+                label="Duration"
+                icon={CalendarDays}
+                required={row.pair[0].required}
+              >
+                <PairBody>
+                  {row.pair.map((f, i) => (
+                    <FieldControl
+                      key={f.name}
+                      field={f}
+                      register={register}
+                      control={control}
+                      error={errors[f.name]?.message}
+                      bare
+                      miniLabel={i === 0 ? 'From' : 'To'}
+                    />
+                  ))}
+                </PairBody>
+              </FormField>
+            ) : row.group ? (
+              <GroupRow
+                key={row.group[0].name}
+                fields={row.group}
+                extra={row === hostRow ? toggleChips : undefined}
                 register={register}
                 control={control}
-                error={errors[field.name]?.message}
+                errors={errors}
                 portfolioId={portfolioId}
                 kind={CATEGORY_KINDS[section]}
               />
-            </div>
-          ))}
+            ) : (
+              <div key={row.field.name}>
+                <FieldControl
+                  field={row.field}
+                  register={register}
+                  control={control}
+                  error={errors[row.field.name]?.message}
+                  portfolioId={portfolioId}
+                  kind={CATEGORY_KINDS[section]}
+                  extra={row === hostRow ? toggleChips : undefined}
+                />
+              </div>
+            ),
+          )}
+          {!hostRow && toggleChips && (
+            <div className="flex flex-wrap gap-3">{toggleChips}</div>
+          )}
         </CardContent>
       </Card>
 
-      {config.gallery &&
-        (isEdit ? (
-          <ProjectGallery projectId={item.id} />
-        ) : (
-          <PendingGallery items={pending} onAdd={addPending} onRemove={removePending} />
-        ))}
+      {(mediaFields.length > 0 || config.gallery) && (
+        <Card>
+          <CardContent
+            className={cn(
+              'grid gap-6',
+              mediaFields.length > 0 &&
+                config.gallery &&
+                'lg:grid-cols-[auto_minmax(0,1fr)]',
+            )}
+          >
+            {mediaFields.length > 0 && (
+              <div className="space-y-5">
+                {mediaFields.map((field) => (
+                  <FieldControl
+                    key={field.name}
+                    field={field}
+                    register={register}
+                    control={control}
+                    error={errors[field.name]?.message}
+                    portfolioId={portfolioId}
+                  />
+                ))}
+              </div>
+            )}
+            {config.gallery &&
+              (isEdit ? (
+                <ProjectGallery projectId={item.id} />
+              ) : (
+                <PendingGallery
+                  items={pending}
+                  onAdd={addPending}
+                  onRemove={removePending}
+                />
+              ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="bg-background/90 border-line sm:bg-card sticky bottom-0 -mx-4 flex flex-col-reverse gap-3 border-t px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:justify-end sm:rounded-xl sm:border">
         <Button as={Link} to={backTo} variant="secondary" disabled={isSubmitting}>
@@ -553,9 +836,7 @@ export function PortfolioItemPage() {
         backLabel="Back to portfolio"
         title={`${isEdit ? 'Edit' : 'Add'} ${config.singular.toLowerCase()}`}
         description={
-          kind
-            ? `${kind.charAt(0).toUpperCase()}${kind.slice(1)} categories`
-            : config.label
+          kind ? `${kind.charAt(0).toUpperCase()}${kind.slice(1)} categories` : undefined
         }
       />
       {schema.isLoading || (isEdit && itemQuery.isLoading) ? (

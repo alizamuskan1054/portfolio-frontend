@@ -3,12 +3,13 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Check, Eye, Globe } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Eye, Globe } from 'lucide-react'
 import { clientsResource, portfoliosResource, templatesResource } from '@/api/endpoints'
 import { applyServerErrors } from '@/api/errors'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { FormField } from '@/components/shared/FormField'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { ProgressSteps } from '@/components/shared/ProgressSteps'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
@@ -28,7 +29,6 @@ import {
 } from '@/features/portfolio/portfolioForm'
 import { SectionTabs } from './PortfolioSections'
 import { notify } from '@/lib/notify'
-import { cn } from '@/lib/utils'
 import { VISIBILITY_GROUPS, normalizeVisibility } from '@/lib/visibility'
 import { paths } from '@/routes/paths'
 
@@ -45,74 +45,12 @@ const STEPS = [
 // === Stepper =================================================================
 function Stepper({ current, maxReached, onSelect }) {
   return (
-    <nav aria-label="Progress" className="mb-6">
-      {/* Mobile: compact */}
-      <div className="sm:hidden">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-heading font-medium">{STEPS[current].label}</span>
-          <span className="text-muted">
-            Step {current + 1} of {STEPS.length}
-          </span>
-        </div>
-        <div className="bg-line mt-2 h-1.5 overflow-hidden rounded-full">
-          <div
-            className="bg-primary h-full rounded-full transition-all"
-            style={{ width: `${((current + 1) / STEPS.length) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Desktop: full */}
-      <ol className="hidden items-center sm:flex">
-        {STEPS.map((step, i) => {
-          const done = i < current
-          const active = i === current
-          const reachable = i <= maxReached
-          return (
-            <li
-              key={step.key}
-              className={cn('flex items-center', i < STEPS.length - 1 && 'flex-1')}
-            >
-              <button
-                type="button"
-                disabled={!reachable}
-                onClick={() => onSelect(i)}
-                aria-current={active ? 'step' : undefined}
-                className="group flex items-center gap-2 disabled:cursor-not-allowed"
-              >
-                <span
-                  className={cn(
-                    'flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-colors',
-                    active && 'border-primary bg-primary text-on-primary',
-                    done && 'border-primary bg-primary-soft text-primary',
-                    !active && !done && 'border-line bg-card text-muted',
-                  )}
-                >
-                  {done ? <Check className="size-4" /> : i + 1}
-                </span>
-                <span
-                  className={cn(
-                    'hidden text-sm whitespace-nowrap lg:block',
-                    active ? 'text-heading font-medium' : 'text-muted',
-                  )}
-                >
-                  {step.label}
-                </span>
-              </button>
-              {i < STEPS.length - 1 && (
-                <span
-                  className={cn(
-                    'mx-3 h-px flex-1',
-                    i < current ? 'bg-primary' : 'bg-line',
-                  )}
-                  aria-hidden="true"
-                />
-              )}
-            </li>
-          )
-        })}
-      </ol>
-    </nav>
+    <ProgressSteps
+      steps={STEPS}
+      current={current}
+      maxReached={maxReached}
+      onSelect={onSelect}
+    />
   )
 }
 

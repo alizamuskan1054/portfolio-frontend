@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft, ArrowRight, Award, Calendar, Check, ChevronLeft, ChevronRight, Code, ExternalLink,
-  FileText, FlaskConical, Lightbulb, Mail, Star, Tag, X,
+  FileText, FlaskConical, Lightbulb, Mail, Maximize2, Star, Tag, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -20,17 +20,17 @@ import { usePublicSite } from '@/public/hooks/usePublicSite'
 // Planning doc: title, main image, category, year, status, description, objectives,
 // methodology, outcomes, gallery, Back link.
 //
-//   1. Hero (navy)         back link, title, summary, status/year, optional live/code/paper buttons
-//   2. Main image          hero par overlap
-//   3. Article + sidebar   Overview, Objectives, Methodology, Outcomes, Gallery (lightbox)
+//   1. Hero (navy)         back link, title, summary, status/year, buttons  |  main image (chhoti, framed, click par zoom)
+//   2. Article + sidebar   Overview, Objectives, Methodology, Outcomes, Gallery (lightbox)
 //                          sidebar: project info + contact (desktop par sticky)
-//   4. More projects       surface section, max 3 cards
-// Jo section khali ho wo dikhta hi nahi.
+//   3. More projects       surface section, max 3 cards
+// Jo section khali ho wo dikhta hi nahi. Sab kuch backend ke data se (kuch hardcoded nahi).
 // Optional backend fields: live_url, repo_url, paper_url (naam alag hon to normalizeProject mein fix).
 //
-// v2: IMAGES POORI DIKHTI HAIN (crop nahi): main image, "More projects" cards aur gallery tiles
-//     mein foreground image object-contain hai, peeche usi image ka blur (khali patti dull na lage).
-//     Lightbox pehle se hi poori image dikhata tha.
+// v2: IMAGES POORI DIKHTI HAIN (crop nahi): foreground object-contain, peeche usi ka blur.
+// v3: MAIN IMAGE chhoti: ab hero ke andar (right side) gradient frame mein, bari full-width image nahi.
+//     Click par poori image lightbox mein. Gallery uniform grid, hover par zoom icon.
+//     Hero mein aurora + sheen, headings par gradient tile + line, objectives/outcomes/sidebar cards ka naya style.
 // =====================================================================================
 
 const PAGE_CSS = `
@@ -38,15 +38,28 @@ const PAGE_CSS = `
 @keyframes pj-float { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(0, -28px, 0) scale(1.06); } }
 @keyframes pj-spin { to { transform: rotate(360deg); } }
 @keyframes pj-pop { 0% { opacity: 0; transform: scale(.97); } 100% { opacity: 1; transform: none; } }
+@keyframes pj-sheen { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+@keyframes pj-bob { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -8px, 0); } }
 .pj-rise { animation: pj-rise .85s cubic-bezier(.2,.7,.2,1) both; }
 .pj-float { animation: pj-float 10s ease-in-out infinite; }
 .pj-float-slow { animation: pj-float 14s ease-in-out infinite reverse; }
 .pj-spin { animation: pj-spin 90s linear infinite; }
 .pj-pop { animation: pj-pop .45s cubic-bezier(.2,.7,.2,1) both; }
+.pj-bob { animation: pj-bob 7s ease-in-out infinite; }
+.pj-aurora { position: absolute; left: 50%; top: 50%; width: 64rem; height: 64rem; margin: -32rem 0 0 -32rem; border-radius: 9999px;
+  opacity: .28; filter: blur(80px); pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0deg, var(--c-primary) 70deg, transparent 140deg, var(--c-accent) 230deg, transparent 300deg);
+  animation: pj-spin 46s linear infinite; }
+.pj-sheen { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--c-primary), var(--c-accent), transparent);
+  background-size: 200% 100%; animation: pj-sheen 6s linear infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .pj-rise, .pj-float, .pj-float-slow, .pj-spin, .pj-pop { animation: none !important; }
+  .pj-rise, .pj-float, .pj-float-slow, .pj-spin, .pj-pop, .pj-bob, .pj-aurora, .pj-sheen { animation: none !important; }
 }
 `
+
+const GRADIENT = 'linear-gradient(135deg, var(--c-primary), var(--c-accent))'
+const GRADIENT_DEEP = 'linear-gradient(135deg, var(--c-primary), color-mix(in srgb, var(--c-primary) 65%, var(--c-navy)))'
 
 // ---------- Data helpers ----------
 
@@ -267,7 +280,7 @@ function ProjectVisual({ project, large = false, className, imgClassName }) {
           <span
             className={cn(
               'absolute -right-3 -bottom-[18%] font-serif leading-none font-semibold text-primary/25 transition-transform duration-700 select-none group-hover:-translate-x-3 group-hover:scale-110',
-              large ? 'text-[9rem] sm:text-[13rem]' : 'text-[7rem]',
+              large ? 'text-[9rem] sm:text-[11rem]' : 'text-[7rem]',
             )}
           >
             {initial}
@@ -278,21 +291,25 @@ function ProjectVisual({ project, large = false, className, imgClassName }) {
   )
 }
 
-// Section ka heading: icon tile + title
+// Section ka heading: gradient icon tile + title + patli line
 function BlockTitle({ icon: Icon, title, id }) {
   return (
-    <div className="mb-4 flex items-center gap-3">
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+    <div className="mb-5 flex items-center gap-3">
+      <span
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-on-primary shadow-md"
+        style={{ background: GRADIENT_DEEP, boxShadow: '0 8px 18px -10px var(--c-primary)' }}
+      >
         <Icon className="size-4" aria-hidden="true" />
       </span>
       <h2 id={id} className="text-xl sm:text-2xl">
         {title}
       </h2>
+      <span className="ml-1 hidden h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent sm:block" aria-hidden="true" />
     </div>
   )
 }
 
-// ---------- Lightbox (gallery) ----------
+// ---------- Lightbox (gallery + main image) ----------
 
 function Lightbox({ images, index, onClose, onChange }) {
   const closeRef = useRef(null)
@@ -374,13 +391,15 @@ function Lightbox({ images, index, onClose, onChange }) {
       <img
         key={images[index].id}
         src={images[index].image}
-        alt={`Gallery image ${index + 1} of ${count}`}
+        alt={`Image ${index + 1} of ${count}`}
         className="pj-pop max-h-[85vh] max-w-full rounded-lg object-contain"
         onClick={(e) => e.stopPropagation()}
       />
-      <p className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm text-white tabular-nums backdrop-blur">
-        {index + 1} / {count}
-      </p>
+      {count > 1 && (
+        <p className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm text-white tabular-nums backdrop-blur">
+          {index + 1} / {count}
+        </p>
+      )}
     </div>
   )
 }
@@ -391,42 +410,43 @@ function Gallery({ images }) {
 
   return (
     <>
-      <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-        {images.map((img, i) => {
-          const big = i === 0 && images.length > 2
-          return (
-            <li key={img.id} className={cn(big && 'col-span-2 lg:col-span-2 lg:row-span-2')}>
-              <button
-                type="button"
-                aria-label={`Open image ${i + 1} of ${images.length}`}
-                onClick={() => setOpen(i)}
-                className="group relative block size-full overflow-hidden rounded-xl border border-line bg-primary-soft"
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+        {images.map((img, i) => (
+          <li key={img.id}>
+            <button
+              type="button"
+              aria-label={`Open image ${i + 1} of ${images.length}`}
+              onClick={() => setOpen(i)}
+              className="group relative block aspect-[4/3] w-full overflow-hidden rounded-xl border border-line bg-primary-soft shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg"
+            >
+              {/* poori image (crop nahi) + peeche usi ka blur */}
+              <img
+                src={img.image}
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+                draggable={false}
+                className="absolute inset-0 size-full object-cover"
+                style={BLUR_BG_STYLE}
+              />
+              <img
+                src={img.image}
+                alt=""
+                loading="lazy"
+                draggable={false}
+                className="relative size-full object-contain transition-transform duration-700 group-hover:scale-105"
+              />
+              <span
+                className="absolute inset-0 flex items-center justify-center bg-navy/0 transition-colors duration-300 group-hover:bg-navy/30"
+                aria-hidden="true"
               >
-                {/* poori image (crop nahi) + peeche usi ka blur */}
-                <img
-                  src={img.image}
-                  alt=""
-                  aria-hidden="true"
-                  loading="lazy"
-                  draggable={false}
-                  className="absolute inset-0 size-full object-cover"
-                  style={BLUR_BG_STYLE}
-                />
-                <img
-                  src={img.image}
-                  alt=""
-                  loading="lazy"
-                  draggable={false}
-                  className={cn(
-                    'relative size-full object-contain transition-transform duration-700 group-hover:scale-105',
-                    big ? 'aspect-[4/3] lg:aspect-auto lg:min-h-full' : 'aspect-[4/3]',
-                  )}
-                />
-                <span className="absolute inset-0 bg-navy/0 transition-colors duration-300 group-hover:bg-navy/20" aria-hidden="true" />
-              </button>
-            </li>
-          )
-        })}
+                <span className="inline-flex size-9 scale-90 items-center justify-center rounded-full bg-white/90 text-navy opacity-0 transition-all duration-300 group-hover:scale-100 group-hover:opacity-100">
+                  <Maximize2 className="size-4" />
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
       </ul>
       {open !== null && <Lightbox images={images} index={open} onClose={close} onChange={setOpen} />}
     </>
@@ -434,6 +454,50 @@ function Gallery({ images }) {
 }
 
 // ---------- 1. Hero ----------
+
+// Main image: chhoti, gradient frame mein, hero ke right side. Click par poori image lightbox mein.
+function HeroImage({ project }) {
+  const [zoom, setZoom] = useState(false)
+  const close = useCallback(() => setZoom(false), [])
+  const canZoom = Boolean(project.thumbnail)
+
+  const visual = (
+    <span className="relative block rounded-2xl p-1.5 shadow-2xl" style={{ background: GRADIENT }}>
+      <span className="group block overflow-hidden rounded-[0.875rem] bg-card">
+        <ProjectVisual
+          large
+          project={project}
+          className="aspect-[4/3] max-h-[16rem] w-full sm:max-h-[19rem]"
+          imgClassName="transition-transform duration-700 group-hover:scale-[1.03]"
+        />
+      </span>
+      {canZoom && (
+        <span className="absolute right-4 bottom-4 inline-flex items-center gap-1.5 rounded-full bg-navy/80 px-3 py-1.5 text-xs font-semibold text-on-navy shadow-md backdrop-blur">
+          <Maximize2 className="size-3.5" aria-hidden="true" />
+          View full image
+        </span>
+      )}
+    </span>
+  )
+
+  return (
+    <div className="pj-rise relative mx-auto w-full max-w-md lg:max-w-none" style={{ animationDelay: '260ms' }}>
+      <div className="pj-float-slow pointer-events-none absolute -top-8 -right-8 -z-10 size-40 rounded-full bg-accent/25 blur-3xl" aria-hidden="true" />
+      <div className="pj-bob">
+        {canZoom ? (
+          <button type="button" onClick={() => setZoom(true)} aria-label="View full image" className="block w-full text-left">
+            {visual}
+          </button>
+        ) : (
+          visual
+        )}
+      </div>
+      {zoom && (
+        <Lightbox images={[{ id: 'cover', image: project.thumbnail }]} index={0} onClose={close} onChange={() => {}} />
+      )}
+    </div>
+  )
+}
 
 function Hero({ project, slug }) {
   const links = [
@@ -445,6 +509,7 @@ function Hero({ project, slug }) {
   return (
     <header className="relative isolate overflow-hidden bg-navy text-on-navy">
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="pj-aurora" />
         <div className="pj-float absolute -top-40 -left-32 size-[30rem] rounded-full bg-primary/30 blur-[90px]" />
         <div className="pj-float-slow absolute top-1/3 -right-40 size-[26rem] rounded-full bg-primary/20 blur-[90px]" />
         <div
@@ -461,7 +526,7 @@ function Hero({ project, slug }) {
         </div>
       </div>
 
-      <Container className="pt-8 pb-16 sm:pt-10 sm:pb-20 lg:pb-24">
+      <Container className="pt-8 pb-14 sm:pt-10 sm:pb-16 lg:pb-20">
         <Link
           to={paths.siteProjects(slug)}
           className="pj-rise group inline-flex items-center gap-2 rounded-full border border-on-navy/20 px-3.5 py-1.5 text-sm font-medium text-on-navy transition-colors hover:border-accent hover:text-accent"
@@ -470,75 +535,82 @@ function Hero({ project, slug }) {
           All projects
         </Link>
 
-        <div className="mt-6 flex flex-wrap items-center gap-2 pj-rise" style={{ animationDelay: '100ms' }}>
-          {project.category && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] font-semibold tracking-widest text-accent uppercase">
-              <Tag className="size-3.5" aria-hidden="true" />
-              {project.category}
-            </span>
-          )}
-          {project.is_featured && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold tracking-wider text-navy uppercase">
-              <Star className="size-3.5" aria-hidden="true" />
-              Featured
-            </span>
-          )}
-        </div>
+        <div className="mt-6 grid items-center gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-12">
+          <div className="min-w-0">
+            <div className="pj-rise flex flex-wrap items-center gap-2" style={{ animationDelay: '100ms' }}>
+              {project.category && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] font-semibold tracking-widest text-accent uppercase">
+                  <Tag className="size-3.5" aria-hidden="true" />
+                  {project.category}
+                </span>
+              )}
+              {project.is_featured && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold tracking-wider text-navy uppercase">
+                  <Star className="size-3.5" aria-hidden="true" />
+                  Featured
+                </span>
+              )}
+            </div>
 
-        <h1
-          className="pj-rise mt-4 max-w-3xl text-3xl leading-tight text-on-navy sm:text-4xl lg:text-5xl"
-          style={{ animationDelay: '180ms' }}
-        >
-          {project.title}
-        </h1>
-        <span className="pj-rise mt-4 block h-1 w-14 rounded-full bg-accent" style={{ animationDelay: '260ms' }} aria-hidden="true" />
+            <h1
+              className="pj-rise mt-4 text-3xl leading-tight text-on-navy sm:text-4xl xl:text-5xl"
+              style={{ animationDelay: '180ms' }}
+            >
+              {project.title}
+            </h1>
+            <span className="pj-rise mt-4 block h-1 w-14 rounded-full bg-accent" style={{ animationDelay: '260ms' }} aria-hidden="true" />
 
-        {project.short_description && (
-          <p className="pj-rise mt-4 max-w-2xl text-sm leading-relaxed text-on-navy/80 sm:text-base" style={{ animationDelay: '340ms' }}>
-            {project.short_description}
-          </p>
-        )}
+            {project.short_description && (
+              <p className="pj-rise mt-4 max-w-2xl text-sm leading-relaxed text-on-navy/80 sm:text-base" style={{ animationDelay: '340ms' }}>
+                {project.short_description}
+              </p>
+            )}
 
-        <div className="pj-rise mt-6 flex flex-wrap items-center gap-3" style={{ animationDelay: '420ms' }}>
-          <StatusPill status={project.status} />
-          {project.year && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-on-navy/20 px-3 py-1 text-xs font-medium text-on-navy/90">
-              <Calendar className="size-3.5" aria-hidden="true" />
-              {project.year}
-            </span>
-          )}
-        </div>
+            <div className="pj-rise mt-6 flex flex-wrap items-center gap-3" style={{ animationDelay: '420ms' }}>
+              <StatusPill status={project.status} />
+              {project.year && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-on-navy/20 px-3 py-1 text-xs font-medium text-on-navy/90">
+                  <Calendar className="size-3.5" aria-hidden="true" />
+                  {project.year}
+                </span>
+              )}
+            </div>
 
-        {links.length > 0 && (
-          <div className="pj-rise mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap" style={{ animationDelay: '500ms' }}>
-            {links.map(({ href, label, icon: Icon, primary }) =>
-              primary ? (
-                <Button key={label} as="a" href={href} target="_blank" rel="noopener noreferrer" className="group">
-                  <Icon className="size-4" aria-hidden="true" />
-                  {label}
-                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
-                </Button>
-              ) : (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-on-navy/30 px-5 text-sm font-medium text-on-navy transition-colors hover:border-accent hover:text-accent"
-                >
-                  <Icon className="size-4" aria-hidden="true" />
-                  {label}
-                </a>
-              ),
+            {links.length > 0 && (
+              <div className="pj-rise mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap" style={{ animationDelay: '500ms' }}>
+                {links.map(({ href, label, icon: Icon, primary }) =>
+                  primary ? (
+                    <Button key={label} as="a" href={href} target="_blank" rel="noopener noreferrer" className="group">
+                      <Icon className="size-4" aria-hidden="true" />
+                      {label}
+                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                    </Button>
+                  ) : (
+                    <a
+                      key={label}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-on-navy/30 px-5 text-sm font-medium text-on-navy transition-colors hover:border-accent hover:text-accent"
+                    >
+                      <Icon className="size-4" aria-hidden="true" />
+                      {label}
+                    </a>
+                  ),
+                )}
+              </div>
             )}
           </div>
-        )}
+
+          <HeroImage project={project} />
+        </div>
       </Container>
+      <span className="pj-sheen" aria-hidden="true" />
     </header>
   )
 }
 
-// ---------- 3. Article ----------
+// ---------- 2. Article ----------
 
 function Article({ project }) {
   const hasDescription = Boolean(sanitizeHtml(project.description))
@@ -564,8 +636,11 @@ function Article({ project }) {
             {project.objectives.map((text, i) => (
               <li key={`${i}-${text}`}>
                 <Reveal delay={Math.min(i, 4) * 80}>
-                  <div className="flex gap-3 rounded-xl border border-line bg-card p-4 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
-                    <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-sm font-semibold text-on-primary">
+                  <div className="relative flex gap-3 overflow-hidden rounded-xl border border-line bg-card p-4 pl-5 shadow-xs transition-all duration-300 before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-gradient-to-b before:from-primary before:to-accent before:content-[''] hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
+                    <span
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full font-serif text-sm font-semibold text-on-primary"
+                      style={{ background: GRADIENT_DEEP, boxShadow: '0 8px 16px -8px var(--c-primary)' }}
+                    >
                       {i + 1}
                     </span>
                     <p className="pt-1 text-sm leading-relaxed text-body sm:text-base">{text}</p>
@@ -595,7 +670,7 @@ function Article({ project }) {
             {project.outcomes.map((text, i) => (
               <li key={`${i}-${text}`}>
                 <Reveal delay={Math.min(i, 4) * 80} className="h-full">
-                  <div className="flex h-full gap-3 rounded-xl bg-blue-tint p-4 transition-transform duration-300 hover:-translate-y-0.5">
+                  <div className="flex h-full gap-3 rounded-xl border border-primary/10 bg-blue-tint p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
                     <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
                       <Check className="size-4" aria-hidden="true" />
                     </span>
@@ -630,12 +705,13 @@ function Sidebar({ project, slug }) {
   return (
     <aside className="flex flex-col gap-5 lg:sticky lg:top-24" aria-label="Project information">
       {rows.length > 0 && (
-        <div className="rounded-2xl border border-line bg-card p-5 shadow-xs">
+        <div className="relative overflow-hidden rounded-2xl border border-line bg-card p-5 shadow-sm">
+          <span className="absolute inset-x-0 top-0 h-1" style={{ background: GRADIENT }} aria-hidden="true" />
           <h2 className="text-base">Project info</h2>
           <dl className="mt-3 divide-y divide-line">
             {rows.map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between gap-4 py-2.5 text-sm first:pt-0 last:pb-0">
-                <dt className="text-muted">{label}</dt>
+                <dt className="text-xs font-semibold tracking-widest text-muted uppercase">{label}</dt>
                 <dd className="text-right">{value}</dd>
               </div>
             ))}
@@ -643,8 +719,14 @@ function Sidebar({ project, slug }) {
         </div>
       )}
 
-      <div className="relative isolate overflow-hidden rounded-2xl bg-navy p-5 text-on-navy">
+      <div className="relative isolate overflow-hidden rounded-2xl bg-navy p-5 text-on-navy shadow-lg">
         <div className="pj-float pointer-events-none absolute -top-16 -right-12 -z-10 size-48 rounded-full bg-primary/40 blur-3xl" aria-hidden="true" />
+        <div className="pj-float-slow pointer-events-none absolute -bottom-20 -left-12 -z-10 size-44 rounded-full bg-accent/25 blur-3xl" aria-hidden="true" />
+        <div
+          className="pointer-events-none absolute inset-0 -z-10 text-on-navy opacity-[0.08]"
+          style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '20px 20px' }}
+          aria-hidden="true"
+        />
         <h2 className="text-lg text-on-navy">Interested in this work?</h2>
         <p className="mt-2 text-sm leading-relaxed text-on-navy/80">
           Questions, collaboration ideas or want to know more? Let&apos;s talk.
@@ -659,7 +741,7 @@ function Sidebar({ project, slug }) {
   )
 }
 
-// ---------- 4. More projects ----------
+// ---------- 3. More projects ----------
 
 function MoreProjects({ currentId, category, slug }) {
   const query = useProjects(slug)
@@ -676,7 +758,10 @@ function MoreProjects({ currentId, category, slug }) {
       <Reveal>
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold tracking-widest text-primary uppercase">Keep exploring</p>
+            <p className="inline-flex items-center gap-2 text-sm font-semibold tracking-widest text-primary uppercase">
+              <span className="h-px w-8" style={{ background: GRADIENT }} aria-hidden="true" />
+              Keep exploring
+            </p>
             <h2 className="mt-1 text-2xl sm:text-3xl">More projects</h2>
           </div>
           <Link to={paths.siteProjects(slug)} className="group inline-flex items-center gap-2 font-medium text-primary">
@@ -693,7 +778,16 @@ function MoreProjects({ currentId, category, slug }) {
               to={paths.siteProject(slug, p.id)}
               className="group flex h-full flex-col overflow-hidden rounded-xl border border-line bg-card shadow-xs transition-all duration-500 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg"
             >
-              <ProjectVisual project={p} className="aspect-[16/10]" imgClassName="transition-transform duration-700 group-hover:scale-105" />
+              <div className="relative">
+                <ProjectVisual project={p} className="aspect-[16/10]" imgClassName="transition-transform duration-700 group-hover:scale-105" />
+                <StatusPill status={p.status} className="absolute top-3 left-3" />
+                {p.year && (
+                  <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-card/95 px-2.5 py-1 text-xs font-medium text-muted shadow-sm backdrop-blur">
+                    <Calendar className="size-3" aria-hidden="true" />
+                    {p.year}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-1 flex-col p-4">
                 {p.category && <p className="text-xs font-semibold tracking-widest text-primary uppercase">{p.category}</p>}
                 <h3 className="mt-2 text-base leading-snug transition-colors group-hover:text-primary">{p.title}</h3>
@@ -716,16 +810,20 @@ function DetailSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading project">
       <div className="bg-navy">
-        <Container className="pt-8 pb-16 sm:pt-10 sm:pb-20 lg:pb-24">
+        <Container className="pt-8 pb-14 sm:pt-10 sm:pb-16 lg:pb-20">
           <Skeleton className="h-10 w-36 rounded-full bg-on-navy/10" />
-          <Skeleton className="mt-10 h-6 w-32 rounded-full bg-on-navy/10" />
-          <Skeleton className="mt-4 h-10 max-w-xl rounded-xl bg-on-navy/10" />
-          <Skeleton className="mt-6 h-5 max-w-xl rounded bg-on-navy/10" />
+          <div className="mt-6 grid items-center gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-12">
+            <div>
+              <Skeleton className="h-6 w-32 rounded-full bg-on-navy/10" />
+              <Skeleton className="mt-4 h-10 max-w-xl rounded-xl bg-on-navy/10" />
+              <Skeleton className="mt-6 h-5 max-w-xl rounded bg-on-navy/10" />
+            </div>
+            <Skeleton className="h-56 rounded-2xl bg-on-navy/10" />
+          </div>
         </Container>
       </div>
-      <Container className="relative z-10 -mt-10 pb-12 sm:-mt-12 lg:-mt-16">
-        <Skeleton className="aspect-[16/9] max-h-[24rem] w-full rounded-2xl" />
-        <div className="mt-12 grid gap-10 lg:grid-cols-3">
+      <Container className="pt-10 pb-12 sm:pt-12">
+        <div className="grid gap-10 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-4 w-full" />
@@ -791,17 +889,8 @@ export function ProjectDetailPage() {
       <Hero project={project} slug={slug} />
 
       <div className="bg-background pb-12 sm:pb-16">
-        <Container className="relative z-10 -mt-10 sm:-mt-12 lg:-mt-16">
-          <div className="pj-pop group overflow-hidden rounded-2xl border border-line bg-card shadow-2xl">
-            <ProjectVisual
-              large
-              project={project}
-              className="aspect-[16/9] max-h-[24rem] w-full"
-              imgClassName="transition-transform duration-700 group-hover:scale-[1.03]"
-            />
-          </div>
-
-          <div className="mt-10 grid gap-10 sm:mt-12 lg:grid-cols-3 lg:gap-12">
+        <Container className="pt-10 sm:pt-12">
+          <div className="grid gap-10 lg:grid-cols-3 lg:gap-12">
             <div className="min-w-0 lg:col-span-2">
               <Article project={project} />
             </div>

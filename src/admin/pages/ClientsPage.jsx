@@ -3,7 +3,21 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye, Pencil, Plus, Trash2, Users } from 'lucide-react'
+import {
+  Briefcase,
+  Building2,
+  Check,
+  Eye,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
+  Plus,
+  Trash2,
+  User,
+  Users,
+  X,
+} from 'lucide-react'
 import { clientsResource } from '@/api/endpoints'
 import { applyServerErrors } from '@/api/errors'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -82,55 +96,63 @@ function ClientForm({ formId, client, onSubmit }) {
   }
 
   return (
-    <form id={formId} onSubmit={handleSubmit(submit)} noValidate className="space-y-5">
+    <form id={formId} onSubmit={handleSubmit(submit)} noValidate className="space-y-4">
       {errors.root?.server && (
         <p role="alert" className="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm">
           {errors.root.server.message}
         </p>
       )}
 
-      <Controller
-        name="profile_photo"
-        control={control}
-        render={({ field }) => (
-          <ImageUploader
-            shape="circle"
-            label="Photo"
-            value={field.value}
-            onChange={field.onChange}
+      {/* Photo left, Full name + Email right (ek hi row) */}
+      <div className="grid gap-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-7">
+        <div className="flex justify-center">
+          <Controller
+            name="profile_photo"
+            control={control}
+            render={({ field }) => (
+              <ImageUploader
+                shape="circle-sm"
+                label="Photo"
+                showHint={false}
+                value={field.value}
+                onChange={field.onChange}
+                error={errors.profile_photo?.message}
+                className="flex flex-col items-center"
+              />
+            )}
           />
-        )}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField
-          label="Full name"
-          error={errors.full_name?.message}
-          required
-          className="sm:col-span-2"
-        >
-          <Input autoComplete="off" {...register('full_name')} />
-        </FormField>
-        <FormField label="Email" error={errors.email?.message} required>
-          <Input type="email" autoComplete="off" {...register('email')} />
-        </FormField>
-        <FormField label="Phone" error={errors.phone?.message}>
-          <Input type="tel" placeholder="+92 300 1234567" {...register('phone')} />
-        </FormField>
-        <FormField label="Profession" error={errors.profession?.message}>
-          <Input placeholder="Researcher" {...register('profession')} />
-        </FormField>
-        <FormField label="Organization" error={errors.organization?.message}>
-          <Input {...register('organization')} />
-        </FormField>
-        <FormField
-          label="Location"
-          error={errors.location?.message}
-          className="sm:col-span-2"
-        >
-          <Input placeholder="Lahore" {...register('location')} />
-        </FormField>
+        </div>
+        <div className="space-y-4">
+          <FormField
+            label="Full name"
+            icon={User}
+            error={errors.full_name?.message}
+            required
+          >
+            <Input autoComplete="off" {...register('full_name')} />
+          </FormField>
+          <FormField label="Email" icon={Mail} error={errors.email?.message} required>
+            <Input type="email" autoComplete="off" {...register('email')} />
+          </FormField>
+        </div>
       </div>
+
+      <FormField label="Phone" icon={Phone} error={errors.phone?.message}>
+        <Input type="tel" placeholder="+92 300 1234567" {...register('phone')} />
+      </FormField>
+      <FormField label="Profession" icon={Briefcase} error={errors.profession?.message}>
+        <Input placeholder="Researcher" {...register('profession')} />
+      </FormField>
+      <FormField
+        label="Organization"
+        icon={Building2}
+        error={errors.organization?.message}
+      >
+        <Input placeholder="University or institute" {...register('organization')} />
+      </FormField>
+      <FormField label="Location" icon={MapPin} error={errors.location?.message}>
+        <Input placeholder="Lahore" {...register('location')} />
+      </FormField>
     </form>
   )
 }
@@ -148,13 +170,16 @@ export function ClientFormModal({ open, onClose, client, onSubmit, saving }) {
       description={
         isEdit ? 'Update the client details.' : 'Add a new researcher to the platform.'
       }
+      size="lg"
       dismissible={!saving}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>
+            <X className="size-4" />
             Cancel
           </Button>
           <Button type="submit" form={formId} loading={saving}>
+            {!saving && <Check className="size-4" />}
             {isEdit ? 'Save changes' : 'Add client'}
           </Button>
         </>

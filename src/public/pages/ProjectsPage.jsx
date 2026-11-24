@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Calendar, Download, FolderSearch, FolderOpen, Layers, Mail, MessageCircle, Star, TrendingUp } from 'lucide-react'
+import { ArrowRight, Calendar, ChevronDown, Download, FolderSearch, FolderOpen, Layers, Mail, MessageCircle, Star, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -19,8 +19,7 @@ import { uniqueValues } from '@/public/lib/filters'
 //
 // v2: SIZING baqi pages (Blog, Contact, Services, Home) ke barabar:
 //   * Hero ab shared <PageHero> hai (rectangle), isliye size khud ba khud same rehta hai.
-//     Pehle: custom hero, 7xl title, bari padding, rotating rings.
-//   * Cards rounded-xl, featured/CTA rounded-2xl (pehle 3xl), headings 1.5rem, chhoti paddings.
+//   * Cards rounded-xl, featured/CTA rounded-2xl, headings 1.5rem, chhoti paddings.
 //
 //   1. Hero            PageHero + animated glow + dot grid + sheen line, chips (counts)
 //   2. Filter bar      sticky: status (sliding indicator) + research-area chips
@@ -28,18 +27,39 @@ import { uniqueValues } from '@/public/lib/filters'
 //   4. Grid            6 at a time, scroll par stagger reveal, hover lift
 //   5. Collaboration   light card (neighbouring navy sections se alag)
 //
-// v3: (1) Hero title/subtitle ab backend ke page_intros (page "projects": title + intro) se aate hain,
-//     na hon to default text. (2) Cards/featured mein image poori dikhti hai (crop nahi), peeche usi ka blur.
+// v3: (1) Hero title/subtitle backend ke page_intros se. (2) Cards/featured mein image poori dikhti hai.
+// v4: PROJECT CARDS hover par khulte hain (dark navy frame, overlay title, chevron pill, tech tags...).
+//
+// v5 (HERO improve, baqi sab kuch v4 jaisa):
+//   - Eyebrow "Projects" aur title "Projects" ek jaise the: eyebrow ab "Selected work".
+//   - Aurora glow, moving grid, floating particles, shimmer title.
+//   - Right side par asli projects ka auto-rotating showcase (featured pehle, max 3):
+//     thumbnail, category, title, status, year. Sirf xl+ screens par; chhoti screens par baqi animation.
 // prefers-reduced-motion par sab band, content seedha dikhta hai.
 // =====================================================================================
 
 const PAGE_SIZE = 6
+
+// Hero ke floating particles: [left, top, delay(s), duration(s)]
+const PARTICLES = [
+  ['7%', '26%', 0, 9],
+  ['23%', '74%', 1.4, 11],
+  ['43%', '14%', 2.6, 8],
+  ['58%', '72%', 0.8, 10],
+  ['74%', '12%', 3.2, 12],
+  ['91%', '64%', 2, 9],
+]
 
 const PAGE_CSS = `
 @keyframes pj-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes pj-float { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(0, -28px, 0) scale(1.06); } }
 @keyframes pj-sheen { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
 @keyframes pj-pop { 0% { opacity: 0; transform: scale(.96) translateY(10px); } 100% { opacity: 1; transform: none; } }
+@keyframes pj-spin { to { transform: rotate(360deg); } }
+@keyframes pj-text { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+@keyframes pj-grid { to { background-position: 44px 44px, 44px 44px; } }
+@keyframes pj-particle { 0%, 100% { transform: translate3d(0, 0, 0); opacity: .2; } 50% { transform: translate3d(10px, -22px, 0); opacity: .9; } }
+@keyframes pj-bob { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -10px, 0); } }
 .pj-rise { animation: pj-rise .6s cubic-bezier(.2,.7,.2,1) both; }
 .pj-float { animation: pj-float 10s ease-in-out infinite; }
 .pj-float-slow { animation: pj-float 14s ease-in-out infinite reverse; }
@@ -49,8 +69,101 @@ const PAGE_CSS = `
 .pj-sheen { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; z-index: 2; pointer-events: none;
   background: linear-gradient(90deg, transparent, var(--c-primary), var(--c-accent), transparent);
   background-size: 200% 100%; animation: pj-sheen 6s linear infinite; }
+
+/* ---- hero decoration (v5) ---- */
+.pj-aurora { position: absolute; z-index: 0; left: 50%; top: 50%; width: 70rem; height: 70rem; margin: -35rem 0 0 -35rem;
+  border-radius: 9999px; opacity: .3; filter: blur(80px); pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0deg, var(--c-primary) 70deg, transparent 140deg, var(--c-accent) 230deg, transparent 300deg);
+  animation: pj-spin 46s linear infinite; }
+.pj-gridbg { position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background-image: linear-gradient(color-mix(in srgb, var(--c-on-navy) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--c-on-navy) 7%, transparent) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse at 78% 50%, #000 10%, transparent 70%);
+  mask-image: radial-gradient(ellipse at 78% 50%, #000 10%, transparent 70%);
+  animation: pj-grid 14s linear infinite; }
+.pj-particle { position: absolute; width: 4px; height: 4px; border-radius: 9999px; pointer-events: none; background: var(--c-on-navy);
+  animation: pj-particle var(--dur, 8s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+.pj-hero :is(h1, h2) { color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(100deg, var(--c-on-navy) 0%, var(--c-on-navy) 42%, var(--c-accent) 50%, var(--c-on-navy) 58%, var(--c-on-navy) 100%);
+  background-size: 250% 100%; background-position: 120% 0; animation: pj-text 7s ease-in-out infinite; }
+
+/* project showcase: asli projects, ek ek karke aage aata hai (xl+) */
+/* stage hero ki poori height leta hai; andar sab kuch cqh mein, isliye hero chhota ho to bhi cards kat'te nahi */
+.pj-stage { position: absolute; z-index: 1; right: 3rem; top: 0; bottom: 0; width: 19rem; container-type: size; pointer-events: none; }
+.pj-deck { position: absolute; inset: 0; animation: pj-bob 8s ease-in-out infinite; }
+.pj-slide { position: absolute; left: 0; top: 16cqh; width: 16rem; overflow: hidden; border-radius: 1rem; color: var(--c-on-navy);
+  border: 1px solid color-mix(in srgb, var(--c-on-navy) 18%, transparent);
+  background: color-mix(in srgb, var(--c-navy) 72%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 22px 44px -24px rgba(0, 0, 0, .65);
+  transition: transform .8s cubic-bezier(.2,.7,.2,1), opacity .8s, filter .8s; }
+.pj-slide[data-pos="0"] { transform: translate3d(0, 0, 0) scale(1); opacity: 1; z-index: 3; }
+.pj-slide[data-pos="1"] { transform: translate3d(1.4rem, 6cqh, 0) scale(.94); opacity: .8; z-index: 2; filter: brightness(.85); }
+.pj-slide[data-pos="2"] { transform: translate3d(2.8rem, 12cqh, 0) scale(.88); opacity: .55; z-index: 1; filter: brightness(.7); }
+.pj-slide::before { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 2px; z-index: 2;
+  background: linear-gradient(90deg, var(--c-primary), var(--c-accent)); }
+.pj-slide-img { position: relative; height: max(4rem, 26cqh); overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--c-primary) 55%, var(--c-navy)), color-mix(in srgb, var(--c-accent) 30%, var(--c-navy))); }
+.pj-slide-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pj-slide-img::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,12,40,.55), transparent 60%); }
+.pj-slide-initial { position: absolute; right: .75rem; bottom: -.9rem; font-family: var(--f-heading, serif); font-weight: 600; font-size: 5.5rem; line-height: 1;
+  color: transparent; -webkit-text-stroke: 1.5px color-mix(in srgb, var(--c-on-navy) 35%, transparent); }
+.pj-slide-body { padding: .75rem .95rem .9rem; }
+.pj-slide-cat { display: block; font-size: .625rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--c-accent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pj-slide-title { margin: .3rem 0 0; font-family: var(--f-heading, inherit); font-weight: 600; font-size: .9375rem; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pj-slide-meta { display: flex; align-items: center; gap: .4rem; margin-top: .5rem; font-size: .6875rem; opacity: .75; }
+.pj-slide-dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--c-accent); }
+.pj-deck-dots { position: absolute; left: 0; bottom: 9cqh; display: flex; gap: .375rem; }
+.pj-deck-dots i { display: block; width: .375rem; height: .375rem; border-radius: 9999px; background: color-mix(in srgb, var(--c-on-navy) 35%, transparent);
+  transition: width .4s, background-color .4s; }
+.pj-deck-dots i[data-on="true"] { width: 1.25rem; background: var(--c-accent); }
+
+.pj-card { position: relative; padding: 6px; border-radius: 1.125rem; background: var(--c-navy); color: var(--c-on-navy);
+  border: 1px solid color-mix(in srgb, var(--c-on-navy) 12%, transparent); box-shadow: 0 14px 30px -18px rgba(0,0,0,.55);
+  transition: transform .3s cubic-bezier(.2,.7,.2,1), box-shadow .3s, border-color .3s; }
+.pj-card[data-open="true"] { border-color: color-mix(in srgb, var(--c-accent) 45%, transparent);
+  box-shadow: 0 24px 48px -22px color-mix(in srgb, var(--c-primary) 75%, black); }
+.pj-img { position: relative; display: block; overflow: hidden; border-radius: .875rem; }
+.pj-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 2.75rem 1rem .875rem; pointer-events: none;
+  background: linear-gradient(to top, rgba(8,12,40,.94), rgba(8,12,40,.6) 55%, transparent); }
+.pj-chev { display: flex; align-items: center; justify-content: center; width: 9rem; max-width: 70%; height: 2.25rem; margin: 6px auto 0;
+  border: 0; border-radius: 9999px; cursor: pointer; color: var(--c-on-navy);
+  background: color-mix(in srgb, var(--c-on-navy) 10%, transparent); transition: background-color .2s; }
+.pj-chev:hover { background: color-mix(in srgb, var(--c-on-navy) 18%, transparent); }
+.pj-chev:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.pj-chev svg { transition: transform .35s cubic-bezier(.2,.7,.2,1); }
+.pj-reveal { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.2,.7,.2,1); }
+.pj-reveal > div { min-height: 0; overflow: hidden; visibility: hidden; transition: visibility 0s linear .45s; }
+.pj-panel { margin-top: 6px; padding: 1rem; border-radius: .875rem; background: rgba(4,6,24,.55);
+  border: 1px solid color-mix(in srgb, var(--c-on-navy) 12%, transparent); }
+.pj-tag { display: inline-flex; align-items: center; padding: .1875rem .625rem; border-radius: 9999px; font-size: .75rem; font-weight: 500;
+  color: var(--c-accent); border: 1px solid color-mix(in srgb, var(--c-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--c-accent) 10%, transparent); }
+.pj-view { display: inline-flex; align-items: center; gap: .375rem; padding: .4375rem .875rem; border-radius: .5rem; font-size: .75rem; font-weight: 600;
+  color: #fff; text-decoration: none; background: linear-gradient(135deg, var(--c-primary), var(--c-accent)); transition: filter .2s, transform .2s; }
+.pj-view:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.pj-view:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+/* khulna: tap/click (data-open), keyboard focus, ya hover (sirf hover wali devices par) */
+.pj-card[data-open="true"] .pj-reveal, .pj-card:has(:focus-visible) .pj-reveal { grid-template-rows: 1fr; }
+.pj-card[data-open="true"] .pj-reveal > div, .pj-card:has(:focus-visible) .pj-reveal > div { visibility: visible; transition-delay: 0s; }
+.pj-card[data-open="true"] .pj-chev svg, .pj-card:has(:focus-visible) .pj-chev svg { transform: rotate(180deg); }
+@media (hover: hover) and (pointer: fine) {
+  .pj-card:hover { border-color: color-mix(in srgb, var(--c-accent) 45%, transparent);
+    box-shadow: 0 24px 48px -22px color-mix(in srgb, var(--c-primary) 75%, black); }
+  .pj-card:hover .pj-reveal { grid-template-rows: 1fr; }
+  .pj-card:hover .pj-reveal > div { visibility: visible; transition-delay: 0s; }
+  .pj-card:hover .pj-chev svg { transform: rotate(180deg); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .pj-rise, .pj-float, .pj-float-slow, .pj-pop, .pj-sheen { animation: none !important; }
+  .pj-card, .pj-chev, .pj-chev svg, .pj-reveal, .pj-reveal > div, .pj-view, .pj-slide, .pj-deck-dots i { transition: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pj-rise, .pj-float, .pj-float-slow, .pj-pop, .pj-sheen, .pj-aurora, .pj-gridbg, .pj-particle, .pj-deck,
+  .pj-hero :is(h1, h2) { animation: none !important; }
+  .pj-hero :is(h1, h2) { background-position: 0 0 !important; }
 }
 `
 
@@ -90,6 +203,24 @@ function normalizeProject(p) {
     short_description: asText(p.short_description),
     is_featured: Boolean(p.is_featured ?? p.featured),
   }
+}
+
+// Tech tags: tags | technologies | tech_stack (array, objects ya comma string), max 5
+function tagsOf(project) {
+  const raw = project.tags ?? project.technologies ?? project.tech_stack ?? []
+  return (Array.isArray(raw) ? raw : String(raw).split(','))
+    .map((t) => asText(typeof t === 'object' && t ? (t.name ?? t.title ?? '') : t))
+    .filter(Boolean)
+    .slice(0, 5)
+}
+
+// Rich-text description (HTML) -> saaf plain text (card ke panel ke liye)
+function plainText(html) {
+  const text = String(html ?? '')
+  if (!text.trim()) return ''
+  if (typeof DOMParser === 'undefined') return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const doc = new DOMParser().parseFromString(text, 'text/html')
+  return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim()
 }
 
 // Status ko 3 tone mein baantte hain: dot colour isi par chalta hai
@@ -222,13 +353,18 @@ function ProjectVisual({ project, large = false, className, imgClassName }) {
 
 // ---------- Project cards ----------
 
-function ProjectCard({ project, to, index }) {
+function ProjectCard({ project, to }) {
+  const [open, setOpen] = useState(false)
+  const panelId = useId()
+  const tags = tagsOf(project)
+  const intro = project.short_description
+  const overview = plainText(project.description)
+  // short intro aur overview ek jaisa ho to dohrana nahi
+  const showOverview = overview && overview !== intro
+
   return (
-    <Link
-      to={to}
-      className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-line bg-card shadow-xs transition-all duration-500 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg"
-    >
-      <div className="relative">
+    <article className="pj-card group" data-open={open}>
+      <Link to={to} className="pj-img" aria-label={`Open project: ${project.title}`}>
         <ProjectVisual
           project={project}
           className="aspect-[16/10]"
@@ -241,39 +377,61 @@ function ProjectCard({ project, to, index }) {
             {project.year}
           </span>
         )}
-      </div>
-
-      <div className="flex flex-1 flex-col p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="truncate text-xs font-semibold tracking-widest text-primary uppercase">
-            {project.category || 'Project'}
-          </p>
-          <span className="font-serif text-base text-muted/50 tabular-nums" aria-hidden="true">
-            {String(index).padStart(2, '0')}
+        <span className="pj-cap">
+          <span className="block text-lg leading-snug font-semibold text-on-navy" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            {project.title}
           </span>
-        </div>
+          {project.category && (
+            <span className="mt-0.5 block truncate text-sm font-medium text-on-navy/70">{project.category}</span>
+          )}
+        </span>
+      </Link>
 
-        <h3 className="mt-2 text-lg leading-snug transition-colors duration-300 group-hover:text-primary">
-          {project.title}
-        </h3>
-        {project.short_description && (
-          <p className="mt-2 line-clamp-3 text-justify [hyphens:auto] [text-align-last:left] text-sm leading-relaxed text-body">{project.short_description}</p>
-        )}
+      <button
+        type="button"
+        className="pj-chev"
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label={open ? 'Hide project details' : 'Show project details'}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ChevronDown className="size-4" aria-hidden="true" />
+      </button>
 
-        <div className="mt-auto flex items-center justify-between pt-5">
-          <span className="text-sm font-medium text-heading transition-colors group-hover:text-primary">View project</span>
-          <span className="inline-flex size-8 items-center justify-center rounded-full border border-line text-primary transition-all duration-300 group-hover:border-primary group-hover:bg-primary group-hover:text-on-primary">
-            <ArrowRight className="size-4 transition-transform duration-300 group-hover:-rotate-45" aria-hidden="true" />
-          </span>
+      <div id={panelId} className="pj-reveal">
+        <div>
+          <div className="pj-panel">
+            {intro && <p className="text-base leading-snug font-semibold text-on-navy">{intro}</p>}
+
+            {tags.length > 0 && (
+              <span className="mt-3 flex flex-wrap gap-1.5">
+                {tags.map((tag) => (
+                  <span key={tag} className="pj-tag">
+                    {tag}
+                  </span>
+                ))}
+              </span>
+            )}
+
+            {showOverview && (
+              <p className="mt-3 line-clamp-4 border-t border-on-navy/10 pt-3 text-justify [hyphens:auto] [text-align-last:left] text-sm leading-relaxed text-on-navy/75">
+                {overview}
+              </p>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-on-navy/10 pt-3">
+              <span className="text-xs font-medium text-on-navy/60">
+                {[project.status, project.year].filter(Boolean).join(' · ')}
+              </span>
+              <Link to={to} className="pj-view">
+                View project
+                <ArrowRight className="size-3.5" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* hover par neeche se blue line */}
-      <span
-        className="absolute inset-x-0 bottom-0 h-1 origin-left scale-x-0 bg-primary transition-transform duration-500 group-hover:scale-x-100"
-        aria-hidden="true"
-      />
-    </Link>
+    </article>
   )
 }
 
@@ -337,8 +495,64 @@ function FeaturedProjectCard({ project, to }) {
 const chipClass = 'border-on-navy/20 bg-on-navy/10 text-on-navy/85 inline-flex items-center rounded-full border'
 const chipStyle = { gap: '0.375rem', padding: '0.375rem 0.75rem', fontSize: '0.75rem' }
 
+// Right side showcase: asli projects (featured pehle, max 3) ek ek karke aage aate hain. Sirf decoration (aria-hidden).
+function HeroDeck({ projects }) {
+  const items = useMemo(
+    () => [...projects].sort((a, b) => Number(b.is_featured) - Number(a.is_featured)).slice(0, 3),
+    [projects],
+  )
+  const [active, setActive] = useState(0)
+
+  useEffect(() => {
+    if (items.length < 2) return undefined
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined
+    const timer = setInterval(() => setActive((a) => (a + 1) % items.length), 3800)
+    return () => clearInterval(timer)
+  }, [items.length])
+
+  if (!items.length) return null
+
+  return (
+    <div className="pj-stage hidden min-[1280px]:block" aria-hidden="true">
+      <div className="pj-deck">
+      {items.map((p, i) => {
+        const pos = (i - active + items.length) % items.length
+        return (
+          <div key={p.id} className="pj-slide" data-pos={pos}>
+            <div className="pj-slide-img">
+              {p.thumbnail ? (
+                <img src={p.thumbnail} alt="" loading="lazy" draggable={false} />
+              ) : (
+                <span className="pj-slide-initial">{(p.title || '?').trim().charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div className="pj-slide-body">
+              {p.category && <span className="pj-slide-cat">{p.category}</span>}
+              <p className="pj-slide-title">{p.title}</p>
+              {(p.status || p.year) && (
+                <span className="pj-slide-meta">
+                  <span className="pj-slide-dot" />
+                  {[p.status, p.year].filter(Boolean).join(' · ')}
+                </span>
+              )}
+            </div>
+          </div>
+        )
+      })}
+      {items.length > 1 && (
+        <span className="pj-deck-dots">
+          {items.map((p, i) => (
+            <i key={p.id} data-on={i === active} />
+          ))}
+        </span>
+      )}
+      </div>
+    </div>
+  )
+}
+
 // Shared PageHero (baqi pages jaisa size, rectangle) + decoration overlay. Chips counts dikhate hain.
-function Hero({ total, areas, ongoing }) {
+function Hero({ total, areas, ongoing, projects }) {
   const { pageIntros } = usePublicSite()
   const intro = getPageIntro(pageIntros, 'projects')
 
@@ -351,7 +565,7 @@ function Hero({ total, areas, ongoing }) {
   return (
     <div className="pj-hero">
       <PageHero
-        eyebrow="Projects"
+        eyebrow="Selected work"
         title={asText(intro?.title) || 'Projects'}
         subtitle={introText(intro) || 'Selected research initiatives and applied work.'}
       >
@@ -373,6 +587,8 @@ function Hero({ total, areas, ongoing }) {
 
       {/* decoration: overlay, clicks nahi rokta */}
       <div className="pointer-events-none absolute inset-0 z-[1]" aria-hidden="true">
+        <div className="pj-aurora" />
+        <div className="pj-gridbg" />
         <div className="pj-float absolute -top-32 -right-16 size-[22rem] rounded-full bg-primary/40 blur-[70px]" />
         <div className="pj-float-slow absolute -bottom-36 -left-12 size-[18rem] rounded-full bg-accent/25 blur-[70px]" />
         <div
@@ -384,7 +600,12 @@ function Hero({ total, areas, ongoing }) {
             maskImage: 'linear-gradient(180deg, #000, transparent 85%)',
           }}
         />
+        {PARTICLES.map(([left, top, delay, dur], i) => (
+          <span key={i} className="pj-particle" style={{ left, top, '--delay': `${delay}s`, '--dur': `${dur}s` }} />
+        ))}
       </div>
+
+      <HeroDeck projects={projects} />
       <span className="pj-sheen" aria-hidden="true" />
     </div>
   )
@@ -397,14 +618,20 @@ function StatusSwitch({ options, value, onChange }) {
   const active = Math.max(0, options.findIndex((o) => o.value === value))
 
   return (
-    <div role="group" aria-label="Filter by status" className="relative grid max-w-full auto-cols-fr grid-flow-col overflow-x-auto rounded-full border border-line bg-card p-1 shadow-xs [scrollbar-width:none]">
+    <div role="group" aria-label="Filter by status" className="relative grid max-w-full auto-cols-fr grid-flow-col overflow-x-auto rounded-full border border-line bg-card p-1 shadow-sm [scrollbar-width:none]">
       <span
-        className="absolute inset-y-1 left-1 rounded-full bg-primary shadow-sm transition-transform duration-300 ease-out motion-reduce:transition-none"
-        style={{ width: `calc((100% - 0.5rem) / ${options.length})`, transform: `translateX(${active * 100}%)` }}
+        className="absolute inset-y-1 left-1 rounded-full transition-transform duration-300 ease-out motion-reduce:transition-none"
+        style={{
+          width: `calc((100% - 0.5rem) / ${options.length})`,
+          transform: `translateX(${active * 100}%)`,
+          background: 'linear-gradient(135deg, var(--c-primary), color-mix(in srgb, var(--c-primary) 65%, var(--c-navy)))',
+          boxShadow: '0 8px 18px -8px var(--c-primary)',
+        }}
         aria-hidden="true"
       />
       {options.map((opt) => {
         const on = opt.value === value
+        const tone = opt.value ? statusTone(opt.value) : null
         return (
           <button
             key={opt.value || 'all'}
@@ -412,12 +639,27 @@ function StatusSwitch({ options, value, onChange }) {
             aria-pressed={on}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'relative z-10 inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors duration-300 sm:px-4',
+              'relative z-10 inline-flex items-center justify-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors duration-300 sm:px-5',
               on ? 'text-on-primary' : 'text-body hover:text-primary',
             )}
           >
+            {tone && (
+              <span className="relative flex size-1.5" aria-hidden="true">
+                {tone === 'ongoing' && !on && (
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60 motion-reduce:hidden" />
+                )}
+                <span className={cn('relative inline-flex size-1.5 rounded-full', on ? 'bg-on-primary' : DOT[tone])} />
+              </span>
+            )}
             {opt.label}
-            <span className={cn('text-xs tabular-nums', on ? 'opacity-80' : 'text-muted')}>{opt.count}</span>
+            <span
+              className={cn(
+                'rounded-full px-1.5 py-px text-[0.6875rem] font-semibold tabular-nums transition-colors duration-300',
+                on ? 'bg-on-primary/20 text-on-primary' : 'bg-primary-soft text-primary',
+              )}
+            >
+              {opt.count}
+            </span>
           </button>
         )
       })}
@@ -425,24 +667,36 @@ function StatusSwitch({ options, value, onChange }) {
   )
 }
 
-function AreaChips({ categories, value, onChange }) {
+function AreaChips({ categories, counts, total, value, onChange }) {
   const chip = (on) =>
     cn(
-      'shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-300',
+      'inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-300',
       on
-        ? 'border-primary bg-primary-soft text-primary'
+        ? 'border-transparent text-on-primary'
         : 'border-line bg-card text-body hover:-translate-y-0.5 hover:border-primary hover:text-primary',
     )
+  const activeStyle = (on) =>
+    on
+      ? {
+          background: 'linear-gradient(135deg, var(--c-primary), color-mix(in srgb, var(--c-primary) 65%, var(--c-navy)))',
+          boxShadow: '0 8px 18px -8px var(--c-primary)',
+        }
+      : undefined
+  const count = (on, n) => (
+    <span className={cn('text-xs tabular-nums', on ? 'opacity-80' : 'text-muted')}>{n}</span>
+  )
 
   return (
     // Hamesha ek line (bar tall na ho): zyada chips hon to side scroll
     <div role="group" aria-label="Filter by research area" className="-mx-4 flex min-w-0 gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] sm:mx-0 sm:px-0 lg:flex-1">
-      <button type="button" aria-pressed={value === ''} onClick={() => onChange('')} className={chip(value === '')}>
+      <button type="button" aria-pressed={value === ''} onClick={() => onChange('')} className={chip(value === '')} style={activeStyle(value === '')}>
         All areas
+        {count(value === '', total)}
       </button>
       {categories.map((c) => (
-        <button key={c} type="button" aria-pressed={value === c} onClick={() => onChange(c)} className={chip(value === c)}>
+        <button key={c} type="button" aria-pressed={value === c} onClick={() => onChange(c)} className={chip(value === c)} style={activeStyle(value === c)}>
           {c}
+          {count(value === c, counts[c] ?? 0)}
         </button>
       ))}
     </div>
@@ -469,6 +723,35 @@ function PageSkeleton() {
   )
 }
 
+// Grid ka header: eyebrow (gradient line), title, gradient accent bar, hint, aur "shown of total" pill
+function GridHeader({ eyebrow, title, shown, total }) {
+  const gradient = { background: 'linear-gradient(90deg, var(--c-primary), var(--c-accent))' }
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0">
+        <p className="inline-flex items-center gap-2 text-xs font-semibold tracking-widest text-primary uppercase">
+          <span className="h-px w-8" style={gradient} aria-hidden="true" />
+          {eyebrow}
+        </p>
+        <h2 id="projects-grid-heading" className="mt-2 text-2xl sm:text-3xl">
+          {title}
+        </h2>
+        <span className="mt-3 block h-1 w-14 rounded-full" style={gradient} aria-hidden="true" />
+        <p className="mt-3 max-w-xl text-sm text-muted">
+          Hover over a card, or tap its arrow, to see the overview and tech stack.
+        </p>
+      </div>
+      <p
+        className="inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1 text-xs font-medium text-muted"
+        aria-live="polite"
+      >
+        <span className="font-semibold text-heading tabular-nums">{shown}</span> of
+        <span className="tabular-nums">{total}</span>
+      </p>
+    </div>
+  )
+}
+
 // ---------- 2-4. Filters + featured + grid ----------
 
 function ProjectsBrowser({ projects }) {
@@ -479,6 +762,7 @@ function ProjectsBrowser({ projects }) {
 
   const statuses = uniqueValues(projects, 'status')
   const categories = uniqueValues(projects, 'category')
+  const areaCounts = Object.fromEntries(categories.map((c) => [c, projects.filter((p) => p.category === c).length]))
 
   const filtering = Boolean(status || category)
   const filtered = projects.filter(
@@ -514,14 +798,25 @@ function ProjectsBrowser({ projects }) {
   return (
     <>
       {hasFilters && (
-        <div className="sticky top-16 z-30 border-b border-line/60 bg-background/85 backdrop-blur-md">
-          <Container className="flex flex-col gap-2.5 py-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="sticky top-16 z-30 border-b border-line/60 bg-background/90 shadow-[0_12px_28px_-24px_rgba(8,12,40,0.55)] backdrop-blur-md">
+          <Container className="flex flex-col gap-3 py-3 lg:flex-row lg:items-center lg:gap-4">
             {statuses.length > 1 && (
               <div className="w-full sm:w-fit lg:shrink-0">
                 <StatusSwitch options={statusOptions} value={status} onChange={changeStatus} />
               </div>
             )}
-            {categories.length > 1 && <AreaChips categories={categories} value={category} onChange={changeCategory} />}
+            {statuses.length > 1 && categories.length > 1 && (
+              <span className="hidden h-6 w-px shrink-0 bg-line lg:block" aria-hidden="true" />
+            )}
+            {categories.length > 1 && (
+              <AreaChips
+                categories={categories}
+                counts={areaCounts}
+                total={projects.length}
+                value={category}
+                onChange={changeCategory}
+              />
+            )}
           </Container>
         </div>
       )}
@@ -548,27 +843,18 @@ function ProjectsBrowser({ projects }) {
           ) : (
             list.length > 0 && (
               <section className={featured ? 'mt-10 sm:mt-12' : undefined} aria-labelledby="projects-grid-heading">
-                <div className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-                  <div>
-                    <p className="text-sm font-semibold text-primary">{filtering ? 'Filtered' : 'Browse'}</p>
-                    <h2 id="projects-grid-heading" className="mt-1 text-2xl">
-                      {filtering ? 'Matching projects' : featured ? 'More projects' : 'All projects'}
-                    </h2>
-                  </div>
-                  <p className="text-xs text-muted" aria-live="polite">
-                    Showing {shown.length} of {list.length}
-                  </p>
-                </div>
+                <GridHeader
+                  eyebrow={filtering ? 'Filtered' : 'Browse'}
+                  title={filtering ? 'Matching projects' : featured ? 'More projects' : 'All projects'}
+                  shown={shown.length}
+                  total={list.length}
+                />
 
                 {/* key badalte hi grid dobara mount hota hai: filter badalne par stagger animation phir chalti hai */}
-                <div key={`${status}|${category}`} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div key={`${status}|${category}`} className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {shown.map((project, i) => (
-                    <Reveal key={project.id} delay={(i % 3) * 90} className="h-full">
-                      <ProjectCard
-                        project={project}
-                        to={paths.siteProject(slug, project.id)}
-                        index={i + (featured ? 2 : 1)}
-                      />
+                    <Reveal key={project.id} delay={(i % 3) * 90}>
+                      <ProjectCard project={project} to={paths.siteProject(slug, project.id)} />
                     </Reveal>
                   ))}
                 </div>
@@ -684,7 +970,7 @@ export function ProjectsPage() {
   return (
     <>
       <style>{PAGE_CSS}</style>
-      <Hero total={projects.length} areas={areas} ongoing={ongoing} />
+      <Hero total={projects.length} areas={areas} ongoing={ongoing} projects={projects} />
       {body}
       {!query.isPending && !query.isError && <CollaborationCta />}
     </>

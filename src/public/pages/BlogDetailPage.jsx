@@ -16,19 +16,16 @@ import { usePublicSite } from '@/public/hooks/usePublicSite'
 
 // =====================================================================================
 // BLOG DETAIL PAGE: poora code isi file mein. Route: /:slug/blogs/:blogSlug (PageGuard "blogs" ke andar).
-// Planning doc: cover, title, author, category, date, reading time, rich content, related articles, Back link.
-//   1. Header (surface): Back link, category, title, excerpt, author + date + reading time, cover (agar ho)
-//   2. Article (background): rich content | right sidebar (On this page + Share), scroll par reading progress bar
-//   3. Author card + related articles (blue-tint, 3 cards: same category pehle)
-// Rich content (Tiptap HTML) SAFE render hota hai: HTML ko parse kar ke sirf allowed tags React elements ban'te hain
-// (script/style/iframe/on* attributes/javascript: links sab drop). dangerouslySetInnerHTML kahin nahi.
+//   1. Header (surface): do column (lg+): left = category, title, excerpt, meta | right = cover (poori image)
+//   2. Article (background): rich content | right sidebar (Author + On this page + Share), reading progress bar
+//   3. Related articles (blue-tint, 3 cards: same category pehle)
+// Rich content (Tiptap HTML) SAFE render hota hai (dangerouslySetInnerHTML kahin nahi).
 //
-// v2 (is file mein hi, koi aur file nahi):
-//   * Cover image aur related cards mein image POORI dikhti hai (crop nahi): object-contain + peeche usi ka blur.
-//     Related cards ab isi file ke andar hain (pehle shared BlogCard jo crop karta tha).
-//   * Author avatar backend se: portfolio photo | profile_photo | logo (na ho to initials).
-//     Photo sirf tab jab article ka author portfolio ka malik ho; kisi aur author ke initials.
-//   * category object ho to bhi crash nahi (asText), tab title mein "undefined" nahi.
+// v3 (design improve):
+//   * Container max-w-4xl -> max-w-6xl: sides par khali jagah khatam.
+//   * Header lg par 2 columns: cover ab chhota, compact card (4:3) mein, poora image (object-contain).
+//   * Sidebar ab Author card + TOC + Share (sticky); mobile par author card article ke neeche.
+//   * Article text thora bada (1.125rem) taake wide column mein balanced rahe.
 // =====================================================================================
 
 // ---------- Helpers ----------
@@ -60,10 +57,8 @@ const isExternal = (href) => /^https?:\/\//i.test(href)
 
 const DROP = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'link', 'meta', 'svg', 'math', 'noscript'])
 
-// Justify: har line dono taraf barabar khatam hoti hai. Hyphenation (lang ke saath) se bade khali gap nahi bante;
-// aakhri line left par; text-wrap:pretty se akela lafz neeche nahi girta.
 const textClass =
-  'text-[1.0625rem] leading-8 text-body text-justify [hyphens:auto] [text-align-last:left] [text-wrap:pretty] [overflow-wrap:anywhere]'
+  'text-[1.125rem] leading-8 text-body text-justify [hyphens:auto] [text-align-last:left] [text-wrap:pretty] [overflow-wrap:anywhere]'
 
 // DOM node -> React node. Unknown tags: sirf unka text/children (tag nahi).
 function convert(node, ctx, key) {
@@ -465,15 +460,29 @@ function Toc({ headings }) {
   )
 }
 
-// Cover: poori image (crop nahi); image na ho to kuch nahi dikhta
+// Author card (sidebar aur mobile dono mein use hota hai)
+function AuthorCard({ author, photo, designation, className }) {
+  return (
+    <div className={cn('flex items-center gap-4 rounded-2xl border border-line bg-card p-4 sm:p-5', className)}>
+      <Avatar name={author} src={photo} className="size-12 text-base sm:size-14 sm:text-lg" />
+      <div className="min-w-0">
+        <p className="text-xs font-semibold tracking-widest text-muted uppercase">Written by</p>
+        <p className="font-serif text-lg leading-snug font-semibold text-heading">{author}</p>
+        {designation && <p className="mt-0.5 text-sm leading-snug text-muted">{designation}</p>}
+      </div>
+    </div>
+  )
+}
+
+// Cover: poori image (crop nahi), compact 4:3 card; image na ho to kuch nahi dikhta
 function CoverFigure({ src, alt }) {
   return (
-    <figure className="mt-8 empty:hidden sm:mt-10">
+    <figure className="empty:hidden">
       <CardImage
         src={src}
         alt={alt}
         placeholder={false}
-        className="aspect-[16/8] w-full rounded-2xl border border-line shadow-sm"
+        className="aspect-[16/10] w-full rounded-2xl border border-line shadow-md lg:aspect-[4/3]"
       />
     </figure>
   )
@@ -488,7 +497,7 @@ function BackLink({ to, className }) {
   )
 }
 
-// Related article card (pehle shared BlogCard tha jo image crop karta tha)
+// Related article card
 function RelatedCard({ blog, to }) {
   const category = asText(blog.category)
   const cover = blog.cover_image ?? blog.thumbnail ?? blog.image ?? null
@@ -549,11 +558,16 @@ function DetailSkeleton() {
   return (
     <>
       <section className="bg-surface py-10 sm:py-14" aria-busy="true" aria-label="Loading article">
-        <Container className="max-w-3xl space-y-4">
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-2/3" />
-          <Skeleton className="h-5 w-1/2" />
+        <Container className="max-w-6xl">
+          <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-12">
+            <div className="space-y-4">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-2/3" />
+              <Skeleton className="h-5 w-1/2" />
+            </div>
+            <Skeleton className="aspect-[16/10] w-full rounded-2xl lg:aspect-[4/3]" />
+          </div>
         </Container>
       </section>
       <Section tone="background">
@@ -620,58 +634,68 @@ export function BlogDetailPage() {
   const photo = portfolio?.photo ?? portfolio?.profile_photo ?? portfolio?.logo ?? null
   const isOwner = !blog.author || !ownerName || author.toLowerCase().includes(lastNameOf(ownerName))
   const authorPhoto = isOwner ? photo : null
+  const authorRole = isOwner ? portfolio?.designation : null
 
   // Related: same category pehle, phir latest; current nikal kar, 3 tak
   const others = (related.data ?? []).filter((b) => b.slug !== blog.slug && b.id !== blog.id)
   const sameCategory = others.filter((b) => category && asText(b.category) === category)
   const relatedPosts = [...sameCategory, ...others.filter((b) => !sameCategory.includes(b))].slice(0, 3)
 
+  const hasCover = Boolean(blog.cover_image)
+
   return (
     <>
       <ReadingProgress targetRef={articleRef} />
 
-      {/* 1. Header */}
-      <header className="bg-surface pt-8 pb-10 sm:pt-10 sm:pb-14">
-        <Container className="max-w-4xl">
+      {/* 1. Header: lg par text left, cover right */}
+      <header className="bg-surface pt-8 pb-10 sm:pt-10 sm:pb-14 lg:pb-16">
+        <Container className="max-w-6xl">
           <BackLink to={blogsTo} />
 
-          <div className="mt-6 max-w-3xl">
-            {category && <Badge variant="primary">{category}</Badge>}
-            <h1 className="mt-4 text-[clamp(1.875rem,4.6vw,3rem)] leading-[1.12]">{blog.title}</h1>
-            {blog.excerpt && <p className="mt-4 text-lg leading-relaxed text-body sm:text-xl">{blog.excerpt}</p>}
+          <div
+            className={cn(
+              'mt-6 grid items-center gap-8 lg:mt-8 lg:gap-12',
+              hasCover && 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]',
+            )}
+          >
+            <div className={cn(!hasCover && 'max-w-3xl')}>
+              {category && <Badge variant="primary">{category}</Badge>}
+              <h1 className="mt-4 text-[clamp(1.875rem,3.8vw,2.875rem)] leading-[1.12]">{blog.title}</h1>
+              {blog.excerpt && <p className="mt-4 text-lg leading-relaxed text-body">{blog.excerpt}</p>}
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-line pt-5 text-sm text-muted">
-              {author && (
-                <span className="flex items-center gap-2.5">
-                  <Avatar name={author} src={authorPhoto} className="size-8 text-xs" />
-                  <span className="font-medium text-heading">{author}</span>
-                </span>
-              )}
-              {blog.published_at && (
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarDays className="size-4" aria-hidden="true" />
-                  <time dateTime={blog.published_at}>{formatDate(blog.published_at)}</time>
-                </span>
-              )}
-              {minutes && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Clock className="size-4" aria-hidden="true" />
-                  {minutes} min read
-                </span>
-              )}
+              <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-line pt-5 text-sm text-muted">
+                {author && (
+                  <span className="flex items-center gap-2.5">
+                    <Avatar name={author} src={authorPhoto} className="size-8 text-xs" />
+                    <span className="font-medium text-heading">{author}</span>
+                  </span>
+                )}
+                {blog.published_at && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="size-4" aria-hidden="true" />
+                    <time dateTime={blog.published_at}>{formatDate(blog.published_at)}</time>
+                  </span>
+                )}
+                {minutes && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="size-4" aria-hidden="true" />
+                    {minutes} min read
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
 
-          <CoverFigure src={blog.cover_image} alt={blog.title} />
+            {hasCover && <CoverFigure src={blog.cover_image} alt={blog.title} />}
+          </div>
         </Container>
       </header>
 
-      {/* 2. Article */}
+      {/* 2. Article + sidebar */}
       <section className="bg-background py-10 sm:py-14">
-        <Container className="max-w-4xl">
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_14rem] lg:gap-14">
+        <Container className="max-w-6xl">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_18rem] xl:gap-16">
             <article ref={articleRef} className="min-w-0">
-              <div lang="en" className="max-w-3xl [&>*:first-child]:mt-0">
+              <div lang="en" className="[&>*:first-child]:mt-0">
                 {parsed.nodes.length > 0 ? (
                   parsed.nodes
                 ) : (
@@ -679,28 +703,21 @@ export function BlogDetailPage() {
                 )}
               </div>
 
-              <ShareLinks title={blog.title} className="mt-10 border-t border-line pt-6 lg:hidden" />
+              {/* Mobile / tablet: author + share article ke neeche */}
+              <div className="mt-10 space-y-6 border-t border-line pt-6 lg:hidden">
+                {author && <AuthorCard author={author} photo={authorPhoto} designation={authorRole} />}
+                <ShareLinks title={blog.title} />
+              </div>
             </article>
 
             <aside className="hidden lg:block">
               <div className="sticky top-24 space-y-8">
+                {author && <AuthorCard author={author} photo={authorPhoto} designation={authorRole} />}
                 <Toc headings={parsed.headings} />
                 <ShareLinks title={blog.title} />
               </div>
             </aside>
           </div>
-
-          {/* Author card */}
-          {author && (
-            <div className="mt-12 flex items-center gap-4 rounded-2xl border border-line bg-card p-5 sm:p-6">
-              <Avatar name={author} src={authorPhoto} className="size-12 text-base sm:size-14 sm:text-lg" />
-              <div className="min-w-0">
-                <p className="text-xs font-semibold tracking-widest text-muted uppercase">Written by</p>
-                <p className="font-serif text-lg font-semibold text-heading">{author}</p>
-                {isOwner && portfolio?.designation && <p className="text-sm text-muted">{portfolio.designation}</p>}
-              </div>
-            </div>
-          )}
         </Container>
       </section>
 

@@ -5,7 +5,7 @@ import { clientsResource } from '@/api/endpoints'
 import { CopyButton } from '@/components/shared/CopyButton'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { notify } from '@/lib/notify'
 import { portalApi } from '@/portal/api'
@@ -40,71 +40,60 @@ export function PortalAccessCard({ client }) {
   })
 
   return (
-    <Card className="h-fit">
-      <CardHeader
-        title="Portal access"
-        description="Let this client log in and manage their own portfolios."
-        action={
-          status && (
-            <Badge variant={status.variant} dot>
-              {status.label}
-            </Badge>
-          )
-        }
-      />
-      <CardContent className="space-y-4">
-        {!hasEmail ? (
-          <p className="text-muted text-sm">
-            Add an email address to this client first. The invite is sent there.
-          </p>
-        ) : (
-          <>
-            {active && (
-              <p className="text-muted flex items-start gap-2 text-sm">
-                <CheckCircle2 className="text-success mt-0.5 size-4 shrink-0" />
-                This client already has an account. Send a new invite only if they lost
-                access.
-              </p>
+    <Card>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
+        <div className="min-w-0 flex-1 basis-64">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg">Portal access</h3>
+            {status && (
+              <Badge variant={status.variant} dot>
+                {status.label}
+              </Badge>
             )}
-            <Button
-              variant={invited || active ? 'secondary' : 'primary'}
-              className="w-full"
-              onClick={() => invite.mutate()}
-              loading={invite.isPending}
-            >
-              <Send className="size-4" />
-              {invited || active ? 'Resend invite' : 'Send invite'}
-            </Button>
-          </>
-        )}
+          </div>
+          <p className="text-muted mt-0.5 text-sm">
+            {!hasEmail
+              ? 'Add an email address to this client first. The invite is sent there.'
+              : active
+                ? 'This client already has an account. Send a new invite only if they lost access.'
+                : 'Let this client log in and manage their own portfolios.'}
+          </p>
+        </div>
 
         {result?.invite_url && (
-          <div className="border-line bg-surface space-y-2 rounded-xl border p-3">
+          <div className="border-line bg-surface flex min-w-0 flex-[2] basis-80 items-center gap-2 rounded-xl border p-2">
             {result.email_sent ? (
-              <p className="text-success flex items-center gap-2 text-sm font-medium">
-                <CheckCircle2 className="size-4" /> Email sent to{' '}
-                {result.sent_to || client.email}
+              <p className="text-success flex shrink-0 items-center gap-1.5 text-sm font-medium">
+                <CheckCircle2 className="size-4" /> Sent to {result.sent_to || client.email}
               </p>
             ) : (
-              <p className="text-warning flex items-start gap-2 text-sm font-medium">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                Email could not be sent. Copy this link and send it to the client
-                yourself.
-              </p>
-            )}
-            <div className="flex items-center gap-2">
-              <Input
-                readOnly
-                value={result.invite_url}
-                aria-label="Invite link"
-                onFocus={(e) => e.target.select()}
-                className="min-w-0 flex-1 text-xs"
+              <AlertTriangle
+                className="text-warning size-4 shrink-0"
+                aria-label="Email could not be sent. Copy the link and send it yourself."
               />
-              <CopyButton text={result.invite_url} variant="secondary" />
-            </div>
+            )}
+            <Input
+              readOnly
+              value={result.invite_url}
+              aria-label="Invite link"
+              onFocus={(e) => e.target.select()}
+              className="min-w-0 flex-1 text-xs"
+            />
+            <CopyButton text={result.invite_url} variant="secondary" />
           </div>
         )}
-      </CardContent>
+
+        {hasEmail && (
+          <Button
+            variant={invited || active ? 'secondary' : 'primary'}
+            onClick={() => invite.mutate()}
+            loading={invite.isPending}
+          >
+            <Send className="size-4" />
+            {invited || active ? 'Resend invite' : 'Send invite'}
+          </Button>
+        )}
+      </div>
     </Card>
   )
 }

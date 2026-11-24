@@ -3,7 +3,7 @@ import { usePlatformSettings } from '@/hooks/usePlatformSettings'
 import { cn } from '@/lib/utils'
 
 // inverted: navy background ke upar (sidebar, auth panel)
-export function Brand({ inverted = false, className }) {
+export function Brand({ inverted = false, compact = false, className }) {
   const { name, logo } = usePlatformSettings()
 
   return (
@@ -15,9 +15,16 @@ export function Brand({ inverted = false, className }) {
           <GraduationCap className="size-5" />
         </span>
       )}
-      <span className={cn('font-serif text-lg font-semibold', inverted ? 'text-on-navy' : 'text-heading')}>
-        {name}
-      </span>
+      {!compact && (
+        <span
+          className={cn(
+            'font-serif text-lg font-semibold',
+            inverted ? 'text-on-navy' : 'text-heading',
+          )}
+        >
+          {name}
+        </span>
+      )}
     </div>
   )
 }

@@ -30,26 +30,18 @@ import { useBlogs } from '@/public/hooks/usePublicData'
 import { usePublicSite } from '@/public/hooks/usePublicSite'
 
 // =====================================================================================
-// BLOGS PAGE (v2): poora code isi file mein. Route: /:slug/blogs
+// BLOGS PAGE (v4): poora code isi file mein. Route: /:slug/blogs
 // API (sirf yehi): useBlogs(slug) -> GET /api/public/{slug}/blogs/
 //                  usePublicSite() -> GET /api/public/{slug}/  (portfolio, page_intros)
 //
-// Sections:
-//   1. Hero            navy + animated gradient glow + dot grid, chips
-//   2. Stats ribbon    blogs se: articles, topics, total reading minutes, latest   (NEW)
-//   3. Toolbar         topic pills + search + sort + grid/list toggle              (NEW: sort, view)
-//   4. Featured        gradient animated border, is_featured wala warna sabse naya
-//   5. Topics          "Browse by topic" cards, share bar ke saath                 (NEW)
-//   6. Articles        grid ya list view, "Load more"
-//   7. Author + CTA    portfolio (full_name, designation, social_links, cv_url)    (NEW)
-//   8. States          loading, error, empty, no results
+// v4 changes (baqi sab kuch v3 jaisa, data wahi dynamic backend se):
+//   - Hero: aurora glow, moving grid, floating particles, shimmer title, aur right side par
+//     latest 3 articles ke glass cards (real title/category/date, sirf xl+ screens par).
+//   - Stats ribbon: cards ab beech (center) mein, bina icon ke, bara gradient number + label.
+//     Cards ki tadaad kuch bhi ho (2, 3, 4) hamesha center rehte hain, mobile par 2 columns.
+//   - Author section: mobile par stack + center, tablet par wrap, desktop par buttons ek column mein.
 //
-// v3: (1) Hero title/subtitle backend ke page_intros ("blogs"/"blog": title + intro) se, na ho to default.
-//     (2) Cards/featured mein cover image poori dikhti hai (crop nahi), peeche usi ka blur.
-//     (3) Author avatar ab backend se: portfolio photo | profile_photo | logo, na ho to initials.
-//         (Featured article par photo tab jab article ka author portfolio ka malik ho.)
 // Gradient colors ek hi jagah set hain: .bp-root { --bp-a, --bp-b }.
-// Agar aapke tokens ke naam alag hon to sirf wo 2 lines badal dein.
 // Animations "prefers-reduced-motion" ko respect karti hain.
 // =====================================================================================
 
@@ -61,6 +53,16 @@ const SORTS = [
   { value: 'quick', label: 'Quickest read' },
 ]
 
+// Hero ke floating particles: [left, top, delay(s), duration(s)]
+const PARTICLES = [
+  ['8%', '24%', 0, 9],
+  ['24%', '72%', 1.4, 11],
+  ['44%', '16%', 2.6, 8],
+  ['60%', '70%', 0.8, 10],
+  ['76%', '12%', 3.2, 12],
+  ['92%', '60%', 2, 9],
+]
+
 const PAGE_CSS = `
 .bp-root{--bp-a:var(--c-primary,#2563eb);--bp-b:var(--c-accent,#f59e0b)}
 
@@ -69,6 +71,12 @@ const PAGE_CSS = `
 @keyframes bp-float-b{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-48px,-18px,0) scale(1.08)}}
 @keyframes bp-gradient{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 @keyframes bp-rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes bp-spin{to{transform:rotate(360deg)}}
+@keyframes bp-text{from{background-position:120% 0}to{background-position:-120% 0}}
+@keyframes bp-grid{to{background-position:44px 44px,44px 44px}}
+@keyframes bp-particle{0%,100%{transform:translate3d(0,0,0);opacity:.2}50%{transform:translate3d(10px,-22px,0);opacity:.9}}
+@keyframes bp-sheen{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes bp-doc{0%,100%{transform:translate3d(0,0,0) rotate(var(--r,0deg))}50%{transform:translate3d(0,-12px,0) rotate(calc(var(--r,0deg) + 1deg))}}
 
 /* ---------- hero decoration ---------- */
 .bp-hero{position:relative;overflow:hidden}
@@ -80,13 +88,47 @@ const PAGE_CSS = `
   -webkit-mask-image:linear-gradient(180deg,#000,transparent 85%);mask-image:linear-gradient(180deg,#000,transparent 85%)}
 .bp-chips{display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;margin:0;padding:0}
 
-/* ---------- stats ribbon ---------- */
-.bp-stats{position:relative;z-index:2;display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:-2.25rem}
-.bp-stat{position:relative;overflow:hidden;padding:1rem 1.125rem;animation:bp-rise .6s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0ms)}
+/* slowly rotating aurora */
+.bp-aurora{position:absolute;z-index:0;left:50%;top:50%;width:70rem;height:70rem;margin:-35rem 0 0 -35rem;pointer-events:none;
+  border-radius:9999px;opacity:.3;filter:blur(80px);
+  background:conic-gradient(from 0deg,transparent 0deg,var(--bp-a) 70deg,transparent 140deg,var(--bp-b) 230deg,transparent 300deg);
+  animation:bp-spin 46s linear infinite}
+/* moving grid */
+.bp-grid-bg{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);
+  background-size:44px 44px;
+  -webkit-mask-image:radial-gradient(ellipse at 78% 50%,#000 10%,transparent 70%);mask-image:radial-gradient(ellipse at 78% 50%,#000 10%,transparent 70%);
+  animation:bp-grid 14s linear infinite}
+.bp-particle{position:absolute;z-index:1;width:4px;height:4px;border-radius:9999px;pointer-events:none;background:#fff;
+  animation:bp-particle var(--dur,8s) ease-in-out infinite;animation-delay:var(--delay,0s)}
+.bp-sheen{position:absolute;left:0;right:0;bottom:0;height:2px;z-index:2;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--bp-a),var(--bp-b),transparent);background-size:200% 100%;animation:bp-sheen 6s linear infinite}
+
+/* hero title shimmer */
+.bp-hero :is(h1,h2){color:transparent;
+  background-image:linear-gradient(100deg,var(--c-on-navy,#fff) 0%,var(--c-on-navy,#fff) 42%,var(--bp-b) 50%,var(--c-on-navy,#fff) 58%,var(--c-on-navy,#fff) 100%);
+  background-size:250% 100%;background-position:120% 0;-webkit-background-clip:text;background-clip:text;animation:bp-text 7s ease-in-out infinite}
+
+/* latest articles: floating glass cards (xl+) */
+.bp-stack{position:absolute;z-index:1;right:3rem;top:50%;width:19rem;height:15rem;margin-top:-9rem;pointer-events:none}
+.bp-doc{position:absolute;left:calc(var(--i) * 2.25rem);top:calc(var(--i) * 4.5rem);width:15.5rem;padding:.8rem .95rem;overflow:hidden;
+  border-radius:.875rem;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 18px 40px -22px rgba(0,0,0,.6);
+  color:var(--c-on-navy,#fff);animation:bp-doc 7s ease-in-out infinite;animation-delay:calc(var(--i) * -2.3s)}
+.bp-doc::before{content:"";position:absolute;left:0;top:0;width:100%;height:2px;background:linear-gradient(90deg,var(--bp-a),var(--bp-b))}
+.bp-doc-cat{display:inline-block;font-size:.625rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--bp-b)}
+.bp-doc-title{margin:.3rem 0 0;font-family:var(--f-heading,inherit);font-weight:600;font-size:.875rem;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bp-doc-meta{margin:.4rem 0 0;font-size:.6875rem;opacity:.7}
+
+/* ---------- stats ribbon (cards hamesha beech mein) ---------- */
+.bp-stats{position:relative;z-index:2;display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem;margin-top:-2.25rem}
+/* size wahi purane 4-column grid wala: har card ek column ke barabar, bas ab beech mein */
+.bp-stat{position:relative;overflow:hidden;flex:0 0 calc(50% - .375rem);padding:1rem 1.125rem;animation:bp-rise .6s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0ms)}
 .bp-stat::before{content:"";position:absolute;left:0;top:0;height:3px;width:100%;background:linear-gradient(90deg,var(--bp-a),var(--bp-b))}
+@media (min-width:768px){.bp-stat{flex:0 0 calc(25% - .5625rem)}}
 .bp-stat-ico{display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:.625rem;color:#fff;
   background:linear-gradient(135deg,var(--bp-a),var(--bp-b));flex-shrink:0}
-@media (min-width:768px){.bp-stats{grid-template-columns:repeat(4,1fr)}}
 
 /* ---------- toolbar ---------- */
 .bp-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem 1rem;padding:1.5rem 0 1.25rem}
@@ -158,21 +200,37 @@ const PAGE_CSS = `
 }
 .bp-row .bp-cover{min-height:10rem}
 
-/* ---------- author + cta ---------- */
-.bp-author{position:relative;overflow:hidden;display:grid;gap:1.25rem;padding:1.5rem}
+/* ---------- author + cta (responsive) ---------- */
+.bp-author{position:relative;overflow:hidden;display:grid;gap:1.25rem;padding:1.25rem}
 .bp-author::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.07;
   background:linear-gradient(120deg,var(--bp-a),var(--bp-b))}
 .bp-author>*{position:relative}
 .bp-avatar{display:inline-flex;overflow:hidden;flex-shrink:0;align-items:center;justify-content:center;width:4rem;height:4rem;border-radius:9999px;color:#fff;font-weight:700;font-size:1.25rem;
   background:linear-gradient(135deg,var(--bp-a),var(--bp-b));box-shadow:0 10px 24px -10px var(--bp-a)}
-@media (min-width:768px){.bp-author{grid-template-columns:1fr auto;align-items:center;padding:2rem}}
+.bp-author-main{display:flex;flex-wrap:wrap;align-items:center;gap:1rem}
+.bp-author-text{min-width:0;flex:1 1 14rem}
+.bp-socials{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
+.bp-author-actions{display:flex;flex-wrap:wrap;gap:.625rem}
+.bp-author-actions>*{flex:1 1 auto;justify-content:center}
+@media (max-width:479px){
+  .bp-author-main{flex-direction:column;text-align:center}
+  .bp-author-text{flex:0 1 auto;width:100%}
+  .bp-socials{justify-content:center}
+  .bp-author-actions>*{flex:1 1 100%}
+}
+@media (min-width:768px){
+  .bp-author{grid-template-columns:1fr auto;align-items:center;padding:2rem;gap:1.75rem}
+  .bp-author-actions{flex-direction:column;align-items:stretch;min-width:12.5rem}
+}
 
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion:reduce){
-  .bp-glow,.bp-fwrap{animation:none!important}
+  .bp-glow,.bp-fwrap,.bp-aurora,.bp-grid-bg,.bp-particle,.bp-sheen,.bp-doc,.bp-hero :is(h1,h2){animation:none!important}
+  .bp-hero :is(h1,h2){background-position:0 0!important}
   .bp-item,.bp-stat{animation:none!important;opacity:1!important;transform:none!important}
-  .bp-card,.bp-topic,.bp-img-fg,.bp-pill{transition:none!important}
+  .bp-card,.bp-topic,.bp-img-fg,.bp-pill,.bp-stat{transition:none!important}
   .bp-card:hover,.bp-topic:hover{transform:none}
+  .bp-stat:hover{translate:none}
 }
 `
 
@@ -373,7 +431,28 @@ function HeroChips({ items }) {
   )
 }
 
-// ---------- Stats ribbon ----------
+// Hero ke right side par latest articles ke glass cards (sirf decoration, real data)
+function HeroStack({ blogs }) {
+  if (!blogs.length) return null
+  const tilt = ['-2deg', '1.5deg', '-1deg']
+  return (
+    <div className="bp-stack hidden min-[1280px]:block" aria-hidden="true">
+      {blogs.map((b, i) => (
+        <div key={b.id} className="bp-doc" style={{ '--i': i, '--r': tilt[i % tilt.length] }}>
+          {b.category && <span className="bp-doc-cat">{b.category}</span>}
+          <p className="bp-doc-title">{b.title}</p>
+          <p className="bp-doc-meta">
+            {[b.published_at && formatDate(b.published_at), b.reading_time && `${b.reading_time} min read`]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ---------- Stats ribbon (purana design, cards beech mein) ----------
 
 function Stat({ icon: Icon, value, suffix = '', text, label, delay }) {
   const counted = useCountUp(typeof value === 'number' ? value : 0)
@@ -570,9 +649,9 @@ function AuthorCta({ portfolio, photo, contactTo }) {
   return (
     <section aria-label="About the author" style={{ marginTop: '3rem' }}>
       <div className="bp-author border-line bg-card rounded-2xl border shadow-xs">
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem' }}>
+        <div className="bp-author-main">
           <Avatar src={photo} name={name} />
-          <div style={{ minWidth: 0, flex: '1 1 14rem' }}>
+          <div className="bp-author-text">
             <p className="text-muted" style={{ fontSize: '0.75rem' }}>
               Written by
             </p>
@@ -583,7 +662,7 @@ function AuthorCta({ portfolio, photo, contactTo }) {
               </p>
             )}
             {socials.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <div className="bp-socials">
                 {socials.map((s) => (
                   <a
                     key={s.url}
@@ -601,7 +680,7 @@ function AuthorCta({ portfolio, photo, contactTo }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem' }}>
+        <div className="bp-author-actions">
           <Button as={Link} to={contactTo} size="sm">
             <Mail width={14} height={14} aria-hidden="true" />
             Suggest a topic
@@ -800,9 +879,21 @@ export function BlogsPage() {
         >
           {heroChips.length > 0 && <HeroChips items={heroChips} />}
         </PageHero>
+        <span className="bp-aurora" aria-hidden="true" />
+        <span className="bp-grid-bg" aria-hidden="true" />
         <span className="bp-glow bp-glow-a" aria-hidden="true" />
         <span className="bp-glow bp-glow-b" aria-hidden="true" />
         <span className="bp-dots" aria-hidden="true" />
+        {PARTICLES.map(([left, top, delay, dur], i) => (
+          <span
+            key={i}
+            className="bp-particle"
+            aria-hidden="true"
+            style={{ left, top, '--delay': `${delay}s`, '--dur': `${dur}s` }}
+          />
+        ))}
+        <HeroStack blogs={blogs.slice(0, 3)} />
+        <span className="bp-sheen" aria-hidden="true" />
       </div>
 
       <div className="bg-background">

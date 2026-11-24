@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Switch } from '@/components/ui/Switch'
 import { notify } from '@/lib/notify'
+import { SCROLL_X } from '@/lib/scrollbar'
 import { cn } from '@/lib/utils'
 import { usePortfolioScope } from '@/features/portfolio/scope'
 import { describeItem } from '../itemDisplay'
@@ -38,7 +39,8 @@ function ApiSection({ path, portfolioId, kind }) {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const scope = usePortfolioScope()
 
-  const params = { portfolio: portfolioId }
+  // Ek portfolio ki entries kam hoti hain; poori list ek hi baar mein (page_size 100)
+  const params = { portfolio: portfolioId, page_size: 100 }
   const query = useQuery({
     queryKey: resource.keys.list(params),
     queryFn: () => resource.list(params),
@@ -139,7 +141,7 @@ function ApiSection({ path, portfolioId, kind }) {
             return (
               <li key={item.id}>
                 <Card className="flex items-center gap-3 p-3 sm:p-4">
-                  <span className="bg-primary-soft text-primary flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold">
+                  <span className="bg-success/15 text-success flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold">
                     {index + 1}
                   </span>
                   <Link
@@ -158,7 +160,7 @@ function ApiSection({ path, portfolioId, kind }) {
                         {info.badges.map((b) => (
                           <span
                             key={b}
-                            className="bg-primary-soft text-primary rounded-full px-2 py-0.5 text-xs font-medium"
+                            className="bg-success/15 text-success rounded-full px-2 py-0.5 text-xs font-medium"
                           >
                             {b}
                           </span>
@@ -211,7 +213,7 @@ function ApiSection({ path, portfolioId, kind }) {
                       variant="ghost"
                       size="icon-sm"
                       aria-label="Delete"
-                      className="hover:bg-danger/10 hover:text-danger"
+                      className="text-danger hover:bg-danger/10 hover:text-danger"
                       onClick={() => setDeleteTarget(item)}
                     >
                       <Trash2 className="size-4" />
@@ -265,7 +267,7 @@ export function SectionTabs({ group, portfolioId, exclude = [] }) {
       <div
         role="tablist"
         aria-label="Sections"
-        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
+        className={cn('flex gap-2 overflow-x-auto pb-2', SCROLL_X)}
       >
         {tabs.map((key) => (
           <button
@@ -286,8 +288,8 @@ export function SectionTabs({ group, portfolioId, exclude = [] }) {
             className={cn(
               'shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition-colors',
               active === key
-                ? 'border-primary bg-primary text-on-primary'
-                : 'border-line bg-card text-body hover:border-primary',
+                ? 'border-success bg-success/15 text-success font-medium'
+                : 'border-line bg-card text-body hover:border-success hover:text-success',
             )}
           >
             {labelOf(key)}

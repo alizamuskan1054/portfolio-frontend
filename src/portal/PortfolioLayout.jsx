@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { portfoliosResource } from '@/api/endpoints'
 import { ErrorState } from '@/components/shared/ErrorState'
+import { useBreadcrumbLabel } from '@/components/shared/Breadcrumbs'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -29,6 +30,10 @@ export function PortfolioLayout() {
     queryFn: () => portfoliosResource.get(id),
     retry: false,
   })
+  useBreadcrumbLabel(
+    paths.portalPortfolio(id),
+    query.data?.title || query.data?.full_name,
+  )
 
   if (query.isPending) {
     return (
